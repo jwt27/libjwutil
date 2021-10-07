@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+set -e
+src=$(cd $(dirname "$0") && pwd)
+
+cat << EOF > config.status
+#!/usr/bin/env bash
+EOF
+chmod +x config.status
+
+echo "jwutil" > name
+
+cat <<- EOF > cxxflags
+-I$src/include
+-std=gnu++20
+EOF
+
+> ldflags
+
+cat << EOF > Makefile
+all:
+Makefile:
+.PHONY: all
+EOF

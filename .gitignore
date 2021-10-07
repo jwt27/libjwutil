@@ -1,0 +1,5 @@
+build/
+Makefile
+cxxflags
+ldflags
+name
