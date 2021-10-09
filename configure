@@ -1,24 +1,17 @@
 #!/usr/bin/env bash
 
 set -e
-src=$(cd $(dirname "$0") && pwd)
-
-cat << EOF > config.status
-#!/usr/bin/env bash
-EOF
-chmod +x config.status
-
-echo "jwutil" > name
+readonly src=$(cd $(dirname "$0") && pwd)
 
 cat <<- EOF > cxxflags
 -I$src/include
 -std=gnu++20
 EOF
 
-> ldflags
-
 cat << EOF > Makefile
+.PHONY: all clean distclean
 all:
-Makefile:
-.PHONY: all
+clean:
+distclean: ; rm -f Makefile cxxflags
+Makefile: $src/configure ; \$<
 EOF
