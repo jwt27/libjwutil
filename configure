@@ -5,7 +5,6 @@ readonly src=$(cd $(dirname "$0") && pwd)
 
 cat <<- EOF > cxxflags
 -I$src/include
--std=gnu++20
 EOF
 
 cat << EOF > Makefile
