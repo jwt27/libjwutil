@@ -38,6 +38,8 @@ namespace jw
         ~function() = default;
         function(function&&) noexcept = default;
         function(const function&) noexcept = default;
+        function& operator=(function&&) noexcept = default;
+        function& operator=(const function&) noexcept = default;
 
         template<typename F>
         function(F&& func) : function { create(std::forward<F>(func)) } { }
