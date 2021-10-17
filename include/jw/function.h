@@ -20,6 +20,8 @@ namespace jw::detail
             return self->lambda(std::forward<A>(args)...);
         }
     };
+    template<typename F>
+    functor(F) -> functor<std::remove_cvref_t<F>>;
 }
 
 namespace jw
@@ -28,7 +30,7 @@ namespace jw
     struct function;
 
     // A simple std::function alternative that never allocates.  It contains
-    // enough space to store a lambda that captures N pointer-sized objects.
+    // enough space to store a lambda that captures N pointers or references.
     template<typename R, typename... A, unsigned N>
     struct function<R(A...), N>
     {
