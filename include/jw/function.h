@@ -75,7 +75,7 @@ namespace jw
         R operator()(A... args) const { return call(&storage, std::forward<A>(args)...); }
 
         bool valid() const noexcept { return call != nullptr; }
-        operator bool() const noexcept { return valid(); }
+        explicit operator bool() const noexcept { return valid(); }
 
     private:
         template<typename F>
