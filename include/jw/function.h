@@ -68,7 +68,7 @@ namespace jw
         function(F&& func) : function { create(std::forward<F>(func)) } { }
 
         template<unsigned M> requires (M < N)
-        function(const function<R(A...), M>& other) : function { copy(other) } { }
+        function(const function<R(A...), M>& other) noexcept : function { copy(other) } { }
 
         R operator()(A... args) const { return call(&storage, std::forward<A>(args)...); }
 
@@ -90,7 +90,7 @@ namespace jw
         }
 
         template<unsigned M>
-        function copy(const function<R(A...), M>& other)
+        static function copy(const function<R(A...), M>& other) noexcept
         {
             function f;
             std::memcpy(&f.storage, &other.storage, sizeof(other.storage));
