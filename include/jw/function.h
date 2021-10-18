@@ -5,6 +5,7 @@
 #include <utility>
 #include <type_traits>
 #include <array>
+#include <cstring>
 
 namespace jw::detail
 {
@@ -66,8 +67,8 @@ namespace jw
         template<typename F> requires (not detail::is_function_instance<F>)
         function(F&& func) : function { create(std::forward<F>(func)) } { }
 
-        template<unsigned M> requires (M <= N)
-        function(const function<R(A...), M>& other) : storage { other.storage }, call { other.call } { }
+        template<unsigned M> requires (M < N)
+        function(const function<R(A...), M>& other) : function { copy(other) } { }
 
         R operator()(A... args) const { return call(&storage, std::forward<A>(args)...); }
 
@@ -88,6 +89,16 @@ namespace jw
             return f;
         }
 
+        template<unsigned M>
+        function copy(const function<R(A...), M>& other)
+        {
+            function f;
+            std::memcpy(&f.storage, &other.storage, sizeof(other.storage));
+            f.call = other.call;
+            return f;
+        }
+
+        template<typename, unsigned> friend struct function;
         using dummy_functor = detail::functor<decltype([x = std::declval<std::array<void*, N>>()](A...) { })>;
         using storage_t = std::aligned_storage_t<sizeof(dummy_functor), alignof(dummy_functor)>;
 
