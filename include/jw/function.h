@@ -23,10 +23,8 @@ namespace jw::detail
     template<typename F>
     functor(F) -> functor<std::remove_cvref_t<F>>;
 
-    template<typename T>
-    struct detect_function_instance : std::false_type { };
-    template<typename F>
-    concept is_function_instance = detect_function_instance<std::remove_cvref_t<F>>::value;
+    template <typename T>
+    inline constexpr bool is_function_instance = false;
 
     // Adapted from libstdc++ __function_guide_helper
     template<typename>
@@ -63,7 +61,7 @@ namespace jw
 
         function(std::nullptr_t) noexcept : function { } { }
 
-        template<typename F> requires (not detail::is_function_instance<F>)
+        template<typename F> requires (not detail::is_function_instance<std::remove_cvref_t<F>>)
         explicit function(F&& func) : function { create(std::forward<F>(func)) } { }
 
         template<typename F>
@@ -114,6 +112,6 @@ namespace jw
 
 namespace jw::detail
 {
-    template<typename T, unsigned N>
-    struct detect_function_instance<function<T, N>> : std::true_type { };
+    template <typename Sig, unsigned N>
+    inline constexpr bool is_function_instance<function<Sig, N>> = true;
 }
