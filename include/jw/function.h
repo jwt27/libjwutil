@@ -27,6 +27,19 @@ namespace jw::detail
     struct detect_function_instance : std::false_type { };
     template<typename F>
     concept is_function_instance = detect_function_instance<std::remove_cvref_t<F>>::value;
+
+    // Adapted from libstdc++ __function_guide_helper
+    template<typename>
+    struct member_function_signature { };
+    template<typename R, typename T, bool Nx, typename... A>
+    struct member_function_signature<R(T::*)(A...) noexcept(Nx)> { using type = R(A...); };
+    template<typename R, typename T, bool Nx, typename... A>
+    struct member_function_signature<R(T::*)(A...) & noexcept(Nx)> { using type = R(A...); };
+    template<typename R, typename T, bool Nx, typename... A>
+    struct member_function_signature<R(T::*)(A...) const noexcept(Nx)> { using type = R(A...); };
+    template<typename R, typename T, bool Nx, typename... A>
+    struct member_function_signature<R(T::*)(A...) const & noexcept(Nx)> { using type = R(A...); };
+
 }
 
 namespace jw
@@ -83,7 +96,7 @@ namespace jw
         R(*call)(const void*, A...) { nullptr };
     };
 
-    template<typename F, typename Signature = typename std::__function_guide_helper<decltype(&F::operator())>::type>
+    template<typename F, typename Signature = typename detail::member_function_signature<decltype(&F::operator())>::type>
     function(F) -> function<Signature, (sizeof(F) - 1) / sizeof(void*) + 1>;
 }
 
