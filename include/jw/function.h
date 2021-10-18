@@ -39,7 +39,6 @@ namespace jw::detail
     struct member_function_signature<R(T::*)(A...) const noexcept(Nx)> { using type = R(A...); };
     template<typename R, typename T, bool Nx, typename... A>
     struct member_function_signature<R(T::*)(A...) const & noexcept(Nx)> { using type = R(A...); };
-
 }
 
 namespace jw
@@ -65,7 +64,10 @@ namespace jw
         function(std::nullptr_t) noexcept : function { } { }
 
         template<typename F> requires (not detail::is_function_instance<F>)
-        function(F&& func) : function { create(std::forward<F>(func)) } { }
+        explicit function(F&& func) : function { create(std::forward<F>(func)) } { }
+
+        template<typename F>
+        function& operator=(F&& func) noexcept { return *this = function { std::forward<F>(func) }; };
 
         template<unsigned M> requires (M < N)
         function(const function<R(A...), M>& other) noexcept : function { copy(other) } { }
