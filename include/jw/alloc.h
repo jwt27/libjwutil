@@ -14,8 +14,9 @@ namespace jw
     template<typename Alloc>
     struct allocator_delete : public Alloc
     {
-        constexpr allocator_delete() = default;
-        constexpr allocator_delete(auto&& other) : Alloc(std::forward<decltype(other)>(other)) { }
+        template <typename... A>
+        constexpr allocator_delete(A&&... args) : Alloc { std::forward<A>(args)... } { }
+        using Alloc::operator=;
         using traits = std::allocator_traits<Alloc>;
         void operator()(auto* p)
         {
