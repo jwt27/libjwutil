@@ -67,7 +67,7 @@ namespace jw
         using propagate_on_container_swap = std::false_type;
         template <typename U> struct rebind { using other = monomorphic_allocator<Resource, U>; };
 
-        constexpr monomorphic_allocator() = default;
+        constexpr monomorphic_allocator() = delete;
         constexpr monomorphic_allocator(const monomorphic_allocator&) noexcept = default;
         constexpr monomorphic_allocator(Resource* res) noexcept : r { res } { };
 
