@@ -105,7 +105,7 @@ namespace jw
             other.call = nullptr;
         }
 
-        template<unsigned M> requires (M < N)
+        template<unsigned M> requires (M <= N)
         function(const function<R(A...), M>& other) noexcept : call { other.call }, vtable { other.vtable }
         {
             if (call == nullptr) return;
