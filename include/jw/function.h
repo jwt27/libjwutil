@@ -154,6 +154,25 @@ namespace jw
 
     template<typename F, typename Signature = typename detail::member_function_signature<decltype(&F::operator())>::type>
     function(F) -> function<Signature, (sizeof(F) - 1) / sizeof(void*) + 1>;
+
+    // A single-use function object with stored arguments.
+    template<typename T>
+    struct callable_tuple
+    {
+        template<typename... E>
+        callable_tuple(E&&... elements) : tuple { std::forward<E>(elements)... } { }
+
+        decltype(auto) operator()() { return call(std::make_index_sequence<std::tuple_size_v<T>> { }); }
+
+    private:
+        template<std::size_t... I>
+        decltype(auto) call(std::index_sequence<I...>) { return std::invoke(std::get<I>(std::move(tuple))...); }
+
+        T tuple;
+    };
+
+    template<typename... E>
+    callable_tuple(E...) -> callable_tuple<std::tuple<std::decay_t<E>...>>;
 }
 
 namespace jw::detail
