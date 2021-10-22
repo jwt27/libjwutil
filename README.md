@@ -1,7 +1,7 @@
-# libjwutil
+# jwutil
 
 This is a header-only library of various utility functions and classes, that I
-wrote while developing [libjwdpmi](https://github.com/jwt27/libjwdpmi).  I've
+wrote while developing [jwdpmi](https://github.com/jwt27/libjwdpmi).  I've
 separated these headers from that project, since they may prove useful for
 other projects, too.
 
