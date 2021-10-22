@@ -55,7 +55,7 @@ namespace jw
         template<std::integral U>
         constexpr fixed(U v) noexcept : value { static_cast<T>(v) << F } { }
 
-        template<std::integral U, std::size_t G>
+        template<same_sign_int<T> U, std::size_t G>
         constexpr fixed(const fixed<U, G>& v) noexcept : value { shr(static_cast<T>(v.value), F - G) } { }
 
         constexpr fixed() noexcept = default;
