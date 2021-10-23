@@ -327,7 +327,7 @@ namespace jw
         }
 
         template<typename Lock = jw::empty, typename... Args>
-        void grow_impl(const std::span<std::byte>& ptr, Args&&... lock_args) noexcept
+        [[gnu::noinline]] void grow_impl(const std::span<std::byte>& ptr, Args&&... lock_args) noexcept
         {
             auto* n = new(ptr.data()) pool_node { ptr.size_bytes() };
             if (root != nullptr) [[likely]]
@@ -339,7 +339,7 @@ namespace jw
         }
 
         template<typename Lock = jw::empty, typename... Args>
-        [[nodiscard]] void* allocate_impl(std::size_t n, std::size_t a, Args&&... lock_args)
+        [[nodiscard, gnu::noinline]] void* allocate_impl(std::size_t n, std::size_t a, Args&&... lock_args)
         {
             auto aligned_ptr = [](void* p, std::size_t align, bool down = false) noexcept
             {
