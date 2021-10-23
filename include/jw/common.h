@@ -34,6 +34,13 @@ namespace jw
         return std::min(static_cast<std::size_t>(1 << std::countr_zero(nbits / 8)), max);
     }
 
+    template<typename F>
+    struct local_destructor
+    {
+        F dtor;
+        ~local_destructor() { dtor(); }
+    };
+
     struct empty { };
 
     using byte = std::uint8_t;
