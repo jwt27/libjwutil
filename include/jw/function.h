@@ -5,6 +5,8 @@
 #include <utility>
 #include <type_traits>
 #include <array>
+#include <tuple>
+#include <functional>
 #include <cstring>
 #include <jw/detail/function.h>
 
