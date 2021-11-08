@@ -34,8 +34,8 @@ namespace jw
             constexpr split_int& operator=(split_int&&) noexcept = default;
 
             template<typename L, typename H>
-            constexpr split_int(L&& l, H&& h) noexcept : lo { std::forward<L>(l) }, hi { std::forward<H>(h) } { };
-            constexpr split_int(std::integral auto v) noexcept : value { static_cast<decltype(value)>(v) } { };
+            constexpr split_int(L&& l, H&& h) noexcept : lo { std::forward<L>(l) }, hi { std::forward<H>(h) } { }
+            constexpr split_int(std::integral auto v) noexcept : value { static_cast<decltype(value)>(v) } { }
             constexpr operator auto() const noexcept { return value; }
         };
 

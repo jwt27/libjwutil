@@ -43,7 +43,7 @@ namespace jw
         explicit trivial_function(F&& func) : trivial_function { create(std::forward<F>(func)) } { }
 
         template<typename F>
-        trivial_function& operator=(F&& func) noexcept { return *this = trivial_function { std::forward<F>(func) }; };
+        trivial_function& operator=(F&& func) noexcept { return *this = trivial_function { std::forward<F>(func) }; }
 
         template<unsigned M> requires (M < N)
         trivial_function(const trivial_function<R(A...), M>& other) noexcept : call { other.call }
@@ -92,7 +92,7 @@ namespace jw
         ~function() { if (call != nullptr) vtable->destroy(&storage); }
 
         template<typename F>
-        function& operator=(F&& func) { return assign(std::forward<F>(func)); };
+        function& operator=(F&& func) { return assign(std::forward<F>(func)); }
 
         function(std::nullptr_t) noexcept : function { } { }
 
