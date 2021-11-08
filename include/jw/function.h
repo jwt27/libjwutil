@@ -62,8 +62,8 @@ namespace jw
         {
             using functor = detail::functor<std::remove_cvref_t<F>>;
             static_assert(std::is_trivially_destructible_v<functor>);
-            static_assert(sizeof(functor) <= sizeof(storage));
-            static_assert(alignof(functor) <= alignof(storage));
+            static_assert(sizeof(functor) <= sizeof(storage_t));
+            static_assert(alignof(functor) <= alignof(storage_t));
             trivial_function f;
             new (&f.storage) functor { std::forward<F>(func) };
             f.call = functor::template call<R, A...>;
@@ -130,8 +130,8 @@ namespace jw
         static function create(F&& func)
         {
             using functor = detail::functor<std::remove_cvref_t<F>>;
-            static_assert(sizeof(functor) <= sizeof(storage));
-            static_assert(alignof(functor) <= alignof(storage));
+            static_assert(sizeof(functor) <= sizeof(storage_t));
+            static_assert(alignof(functor) <= alignof(storage_t));
             function f;
             new (&f.storage) functor { std::forward<F>(func) };
             f.call = functor::template call<R, A...>;
