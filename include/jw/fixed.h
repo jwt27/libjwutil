@@ -86,11 +86,11 @@ namespace jw
             larger_t<max_t<T, U>> a { f.value };
             return fixed<larger_t<max_t<T, U>>, F + G>::make(a * v.value);
         }
-        template<same_sign_int<T> U, std::size_t G> friend constexpr auto operator/(fixed f, const fixed<U, G>& v)
+        template<same_sign_int<T> U, std::size_t G> friend constexpr auto operator/(const fixed& f, const fixed<U, G>& v)
         {
             if constexpr (static_cast<signed>(F - G) <= 0)
                 return (static_cast<larger_t<T>>(f.value) << -(F - G)) / v.value;
-            else return fixed<max_t<T, U>, F - G>::make(f.value /= v.value);
+            else return fixed<max_t<T, U>, F - G>::make(f.value / v.value);
         }
 
         template<std::integral U> constexpr fixed& operator+=(U v) { value += static_cast<larger_t<U>>(v) << F; return *this; }
