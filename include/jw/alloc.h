@@ -79,6 +79,9 @@ namespace jw
         }
     };
 
+    template<typename T>
+    using default_constructing_allocator = default_constructing_allocator_adaptor<std::allocator<T>>;
+
     // Behaves much like std::pmr::polymorphic_allocator, except that the
     // specific type of memory_resource can be narrowed down to eliminate
     // virtual function calls.
