@@ -1,4 +1,5 @@
 /* * * * * * * * * * * * * * libjwutil * * * * * * * * * * * * * */
+/* Copyright (C) 2022 J.W. Jagersma, see COPYING.txt for details */
 /* Copyright (C) 2021 J.W. Jagersma, see COPYING.txt for details */
 
 #pragma once
@@ -51,6 +52,32 @@ namespace jw
 
         return std::unique_ptr<T, deleter> { nullptr, deleter { rebind { alloc } } };
     }
+
+    // An allocator adaptor that default-constructs its elements.  This means
+    // that trivial types will not be zero-initialized.
+    template<typename A>
+    struct default_constructing_allocator_adaptor : A
+    {
+        using value_type = std::allocator_traits<A>::value_type;
+        using size_type = std::allocator_traits<A>::size_type;
+        using difference_type = std::allocator_traits<A>::difference_type;
+        using pointer = std::allocator_traits<A>::pointer;
+        using const_pointer = std::allocator_traits<A>::const_pointer;
+        using void_pointer = std::allocator_traits<A>::void_pointer;
+        using const_void_pointer = std::allocator_traits<A>::const_void_pointer;
+
+        using propagate_on_container_copy_assignment = std::allocator_traits<A>::propagate_on_container_copy_assignment;
+        using propagate_on_container_move_assignment = std::allocator_traits<A>::propagate_on_container_move_assignment;
+        using propagate_on_container_swap = std::allocator_traits<A>::propagate_on_container_swap;
+        template <typename T> struct rebind { using other = default_constructing_allocator_adaptor<typename std::allocator_traits<A>::rebind_alloc<T>>; };
+
+        template <typename T, typename... Args>
+        void construct(T* p, Args&&... args)
+        {
+            if constexpr (sizeof...(Args) == 0 and not std::uses_allocator_v<T, A>) new (p) T;
+            else std::allocator_traits<A>::construct(*this, p, std::forward<Args>(args)...);
+        }
+    };
 
     // Behaves much like std::pmr::polymorphic_allocator, except that the
     // specific type of memory_resource can be narrowed down to eliminate
