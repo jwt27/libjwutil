@@ -106,7 +106,7 @@ namespace jw
         template <typename T, typename... Args>
         constexpr void construct(T* p, Args&&... args)
         {
-            std::uninitialized_construct_using_allocator(p, *this, std::forward<A>(args)...);
+            std::uninitialized_construct_using_allocator(p, *this, std::forward<Args>(args)...);
         }
     };
 
