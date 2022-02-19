@@ -71,6 +71,11 @@ namespace jw
         using propagate_on_container_swap = std::allocator_traits<A>::propagate_on_container_swap;
         template <typename T> struct rebind { using other = default_constructing_allocator_adaptor<typename std::allocator_traits<A>::rebind_alloc<T>>; };
 
+        using A::A;
+        using A::operator=;
+        constexpr bool operator==(const default_constructing_allocator_adaptor&) const noexcept = default;
+        constexpr bool operator!=(const default_constructing_allocator_adaptor&) const noexcept = default;
+
         template <typename T, typename... Args>
         constexpr void construct(T* p, Args&&... args)
         {
@@ -102,6 +107,11 @@ namespace jw
         using propagate_on_container_move_assignment = std::allocator_traits<A>::propagate_on_container_move_assignment;
         using propagate_on_container_swap = std::allocator_traits<A>::propagate_on_container_swap;
         template <typename T> struct rebind { using other = uses_allocator_adaptor<typename std::allocator_traits<A>::rebind_alloc<T>>; };
+
+        using A::A;
+        using A::operator=;
+        constexpr bool operator==(const uses_allocator_adaptor&) const noexcept = default;
+        constexpr bool operator!=(const uses_allocator_adaptor&) const noexcept = default;
 
         template <typename T, typename... Args>
         constexpr void construct(T* p, Args&&... args)
