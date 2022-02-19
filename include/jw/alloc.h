@@ -376,6 +376,7 @@ namespace jw
                 return reinterpret_cast<std::byte*>(b);
             };
 
+            a = std::max(a, alignof(void*));
             n += a + sizeof(std::size_t) + sizeof(std::uint8_t);
             n = std::max(n, sizeof(pool_node) + alignof(pool_node));
 
