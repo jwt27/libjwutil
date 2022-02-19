@@ -72,7 +72,7 @@ namespace jw
         template <typename T> struct rebind { using other = default_constructing_allocator_adaptor<typename std::allocator_traits<A>::rebind_alloc<T>>; };
 
         template <typename T, typename... Args>
-        void construct(T* p, Args&&... args)
+        constexpr void construct(T* p, Args&&... args)
         {
             if constexpr (sizeof...(Args) == 0 and not std::uses_allocator_v<T, A>) new (p) T;
             else std::allocator_traits<A>::construct(*this, p, std::forward<Args>(args)...);
@@ -104,7 +104,7 @@ namespace jw
         template <typename T> struct rebind { using other = uses_allocator_adaptor<typename std::allocator_traits<A>::rebind_alloc<T>>; };
 
         template <typename T, typename... Args>
-        void construct(T* p, Args&&... args)
+        constexpr void construct(T* p, Args&&... args)
         {
             std::uninitialized_construct_using_allocator(p, *this, std::forward<A>(args)...);
         }
