@@ -183,7 +183,7 @@ namespace jw
         template<typename U>
         void destroy(U* p)
         {
-            p->~U();
+            std::destroy_at(p);
         }
 
         template <typename U, typename... A>
