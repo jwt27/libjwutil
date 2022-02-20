@@ -589,6 +589,7 @@ namespace jw
                 set_size(n);
                 throw;
             }
+            return back();
         }
 
         constexpr void pop_back()
