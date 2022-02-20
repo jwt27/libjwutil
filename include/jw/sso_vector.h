@@ -543,7 +543,12 @@ namespace jw
             T* const p = begin() + i;
             assume(a < 2);
             destroy_n(p, a);
-            construct(p, std::forward<A>(args)...);
+            try { construct(p, std::forward<A>(args)...); }
+            catch (...)
+            {
+                if (p == end() - 1) set_size(size() - 1);
+                throw;
+            }
             return p;
         }
 
