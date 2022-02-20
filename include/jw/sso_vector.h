@@ -400,15 +400,23 @@ namespace jw
             const size_type a = make_gap(i, 1);
             T* const p = begin() + i;
             assume(a < 2);
-            if constexpr (uses_allocator)
+            try
             {
-                destroy_n(p, a);
-                construct(p, value);
+                if constexpr (uses_allocator)
+                {
+                    destroy_n(p, a);
+                    construct(p, value);
+                }
+                else
+                {
+                    if (a != 0) *p = value;
+                    else construct(p, value);
+                }
             }
-            else
+            catch (...)
             {
-                if (a != 0) *p = value;
-                else construct(p, value);
+                if (p == end() - 1) set_size(size() - 1);
+                throw;
             }
             return p;
         }
@@ -419,15 +427,23 @@ namespace jw
             const size_type a = make_gap(i, 1);
             T* const p = begin() + i;
             assume(a < 2);
-            if constexpr (uses_allocator)
+            try
             {
-                destroy_n(p, a);
-                construct(p, std::move(value));
+                if constexpr (uses_allocator)
+                {
+                    destroy_n(p, a);
+                    construct(p, std::move(value));
+                }
+                else
+                {
+                    if (a != 0) *p = std::move(value);
+                    else construct(p, std::move(value));
+                }
             }
-            else
+            catch (...)
             {
-                if (a != 0) *p = std::move(value);
-                else construct(p, std::move(value));
+                if (p == end() - 1) set_size(size() - 1);
+                throw;
             }
             return p;
         }
@@ -437,15 +453,23 @@ namespace jw
             const size_type i = pos - begin();
             const size_type a = make_gap(i, n);
             T* const p = begin() + i;
-            if constexpr (uses_allocator)
+            try
             {
-                destroy_n(p, a);
-                uninitialized_fill_n(p, n, value);
+                if constexpr (uses_allocator)
+                {
+                    destroy_n(p, a);
+                    uninitialized_fill_n(p, n, value);
+                }
+                else
+                {
+                    std::fill_n(par_unseq(), p, a, value);
+                    uninitialized_fill_n(p + a, n - a, value);
+                }
             }
-            else
+            catch (...)
             {
-                std::fill_n(par_unseq(), p, a, value);
-                uninitialized_fill_n(p + a, n - a, value);
+                if (p == end() - 1) set_size(size() - 1);
+                throw;
             }
             return p;
         }
@@ -457,15 +481,23 @@ namespace jw
             const size_type i = pos - begin();
             const size_type a = make_gap(i, n);
             T* const p = begin() + i;
-            if constexpr (uses_allocator)
+            try
             {
-                destroy_n(p, a);
-                uninitialized_move(first, last, p);
+                if constexpr (uses_allocator)
+                {
+                    destroy_n(p, a);
+                    uninitialized_move(first, last, p);
+                }
+                else
+                {
+                    std::move(par_unseq(), first, first + a, p);
+                    uninitialized_move(first + a, last, p + a);
+                }
             }
-            else
+            catch (...)
             {
-                std::move(par_unseq(), first, first + a, p);
-                uninitialized_move(first + a, last, p + a);
+                if (p == end() - 1) set_size(size() - 1);
+                throw;
             }
             return p;
         }
@@ -477,15 +509,23 @@ namespace jw
             const size_type i = pos - begin();
             const size_type a = make_gap(i, n);
             T* const p = begin() + i;
-            if constexpr (uses_allocator)
+            try
             {
-                destroy_n(p, a);
-                uninitialized_copy(first, last, p);
+                if constexpr (uses_allocator)
+                {
+                    destroy_n(p, a);
+                    uninitialized_copy(first, last, p);
+                }
+                else
+                {
+                    std::copy(par_unseq(), first, first + a, p);
+                    uninitialized_copy(first + a, last, p + a);
+                }
             }
-            else
+            catch (...)
             {
-                std::copy(par_unseq(), first, first + a, p);
-                uninitialized_copy(first + a, last, p + a);
+                if (p == end() - 1) set_size(size() - 1);
+                throw;
             }
             return p;
         }
