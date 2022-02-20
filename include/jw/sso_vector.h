@@ -630,11 +630,11 @@ namespace jw
             pointer ptr;
         };
 
-        static constexpr size_type max_sso_size = (sizeof(vector_data) - alignof(T)) / sizeof(T);
-        static constexpr size_type sso_size = std::max(min_sso_size, max_sso_size);
+        static constexpr size_type default_sso_size = (sizeof(vector_data) - alignof(T)) / sizeof(T);
+        static constexpr size_type sso_size = std::max(min_sso_size, default_sso_size);
         static constexpr size_type min_alloc_size = std::max(std::bit_ceil(sso_size), 8ul);
         static constexpr bool use_sso = sso_size > 0;
-        static constexpr bool oversized = min_sso_size > max_sso_size;
+        static constexpr bool oversized = min_sso_size > default_sso_size;
         static constexpr bool uses_allocator = std::uses_allocator_v<T, allocator_type>;
 
         struct [[gnu::packed]] sso_bits
