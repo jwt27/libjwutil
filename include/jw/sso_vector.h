@@ -648,7 +648,7 @@ namespace jw
             std::aligned_storage_t<sizeof(T) * sso_size, alignof(T)> storage;
         };
 
-        static_assert(max_sso_size < 1 << 7);
+        static_assert(sso_size < 1 << 7);
         static_assert(std::endian::native == std::endian::little);
         static_assert(sizeof(sso_bits) == 1);
         static_assert(alignof(sso_bits) == 1);
@@ -762,7 +762,7 @@ namespace jw
 
         constexpr void init_allocate(size_type n)
         {
-            if constexpr (use_sso) if (n <= max_sso_size)
+            if constexpr (use_sso) if (n <= sso_size)
             {
                 new (&near) sso_data;
                 near.bits = { true, n };
