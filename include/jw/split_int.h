@@ -1,4 +1,5 @@
 /* * * * * * * * * * * * * * libjwutil * * * * * * * * * * * * * */
+/* Copyright (C) 2022 J.W. Jagersma, see COPYING.txt for details */
 /* Copyright (C) 2021 J.W. Jagersma, see COPYING.txt for details */
 
 #pragma once
@@ -45,8 +46,8 @@ namespace jw
         {
             struct [[gnu::packed]]
             {
-                 unsigned lo : size / 2;
-                 T hi : size / 2;
+                unsigned lo : size / 2;
+                T hi : size / 2;
             };
             std::conditional_t<std::is_signed_v<T>, std::int64_t, std::uint64_t> value : size;
 
