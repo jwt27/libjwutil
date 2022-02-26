@@ -4,6 +4,7 @@ set -e
 readonly src=$(cd $(dirname "$0") && pwd)
 
 cat <<- EOF > cxxflags
+-mno-ms-bitfields
 -I$src/include
 EOF
 
