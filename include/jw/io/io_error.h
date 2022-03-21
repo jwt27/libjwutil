@@ -1,7 +1,9 @@
 /* * * * * * * * * * * * * * libjwutil * * * * * * * * * * * * * */
+/* Copyright (C) 2022 J.W. Jagersma, see COPYING.txt for details */
 /* Copyright (C) 2021 J.W. Jagersma, see COPYING.txt for details */
 
 #pragma once
+#include <ios>
 #include <stdexcept>
 
 namespace jw::io
