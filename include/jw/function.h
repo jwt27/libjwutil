@@ -1,4 +1,5 @@
 /* * * * * * * * * * * * * * libjwutil * * * * * * * * * * * * * */
+/* Copyright (C) 2022 J.W. Jagersma, see COPYING.txt for details */
 /* Copyright (C) 2021 J.W. Jagersma, see COPYING.txt for details */
 
 #pragma once
@@ -25,19 +26,19 @@ namespace jw
     template<typename R, typename... A, unsigned N>
     struct trivial_function<R(A...), N>
     {
-        trivial_function() noexcept = default;
-        ~trivial_function() = default;
-        trivial_function(trivial_function&&) noexcept = default;
-        trivial_function(const trivial_function&) noexcept = default;
-        trivial_function& operator=(trivial_function&&) noexcept = default;
-        trivial_function& operator=(const trivial_function&) noexcept = default;
+        constexpr trivial_function() noexcept = default;
+        constexpr ~trivial_function() = default;
+        constexpr trivial_function(trivial_function&&) noexcept = default;
+        constexpr trivial_function(const trivial_function&) noexcept = default;
+        constexpr trivial_function& operator=(trivial_function&&) noexcept = default;
+        constexpr trivial_function& operator=(const trivial_function&) noexcept = default;
 
         template<typename T, unsigned M>
         trivial_function(function<T, M>&&) = delete;
         template<typename T, unsigned M>
         trivial_function(const function<T, M>&) = delete;
 
-        trivial_function(std::nullptr_t) noexcept : trivial_function { } { }
+        constexpr trivial_function(std::nullptr_t) noexcept : trivial_function { } { }
 
         template<typename F> requires (not detail::is_function_instance<std::remove_cvref_t<F>>)
         explicit trivial_function(F&& func) : trivial_function { create(std::forward<F>(func)) } { }
@@ -53,8 +54,8 @@ namespace jw
 
         R operator()(A... args) const { return call(&storage, std::forward<A>(args)...); }
 
-        bool valid() const noexcept { return call != nullptr; }
-        explicit operator bool() const noexcept { return valid(); }
+        constexpr bool valid() const noexcept { return call != nullptr; }
+        explicit constexpr operator bool() const noexcept { return valid(); }
 
     private:
         template<typename F>
@@ -88,13 +89,13 @@ namespace jw
     template<typename R, typename... A, unsigned N>
     struct function<R(A...), N>
     {
-        function() noexcept = default;
-        ~function() { if (call != nullptr) vtable->destroy(&storage); }
+        constexpr function() noexcept = default;
+        constexpr ~function() { if (call != nullptr) vtable->destroy(&storage); }
 
         template<typename F>
         function& operator=(F&& func) { return assign(std::forward<F>(func)); }
 
-        function(std::nullptr_t) noexcept : function { } { }
+        constexpr function(std::nullptr_t) noexcept : function { } { }
 
         template<typename F> requires (not detail::is_function_instance<std::remove_cvref_t<F>>)
         explicit function(F&& func) : function { create(std::forward<F>(func)) } { }
@@ -122,8 +123,8 @@ namespace jw
 
         R operator()(A... args) const { return call(&storage, std::forward<A>(args)...); }
 
-        bool valid() const noexcept { return call != nullptr; }
-        explicit operator bool() const noexcept { return valid(); }
+        constexpr bool valid() const noexcept { return call != nullptr; }
+        explicit constexpr operator bool() const noexcept { return valid(); }
 
     private:
         template<typename F>
@@ -162,7 +163,7 @@ namespace jw
     struct callable_tuple
     {
         template<typename... E>
-        callable_tuple(E&&... elements) : tuple { std::forward<E>(elements)... } { }
+        constexpr callable_tuple(E&&... elements) : tuple { std::forward<E>(elements)... } { }
 
         decltype(auto) operator()() { return call(std::make_index_sequence<std::tuple_size_v<T>> { }); }
 
