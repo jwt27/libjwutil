@@ -1,4 +1,5 @@
 /* * * * * * * * * * * * * * libjwutil * * * * * * * * * * * * * */
+/* Copyright (C) 2022 J.W. Jagersma, see COPYING.txt for details */
 /* Copyright (C) 2021 J.W. Jagersma, see COPYING.txt for details */
 
 #pragma once
@@ -27,6 +28,9 @@ namespace jw
 
     [[gnu::always_inline]]
     constexpr inline void assume(bool condition) noexcept { if (not condition) __builtin_unreachable(); }
+
+    template<typename T> T volatile_load(const T* p) noexcept { return *static_cast<const volatile T*>(p); }
+    template<typename T> void volatile_store(T* p, const T& v) noexcept { *static_cast<volatile T*>(p) = v; }
 
     consteval inline std::size_t alignment_for_bits(std::size_t nbits, std::size_t max) noexcept
     {
