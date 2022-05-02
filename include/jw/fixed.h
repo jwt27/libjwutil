@@ -1,4 +1,5 @@
 /* * * * * * * * * * * * * * libjwutil * * * * * * * * * * * * * */
+/* Copyright (C) 2022 J.W. Jagersma, see COPYING.txt for details */
 /* Copyright (C) 2021 J.W. Jagersma, see COPYING.txt for details */
 
 #pragma once
@@ -56,7 +57,7 @@ namespace jw
         constexpr fixed(U v) noexcept : value { static_cast<T>(v) << F } { }
 
         template<same_sign_int<T> U, std::size_t G>
-        constexpr fixed(const fixed<U, G>& v) noexcept : value { shr(static_cast<T>(v.value), F - G) } { }
+        constexpr fixed(const fixed<U, G>& v) noexcept : value { shl(static_cast<T>(v.value), F - G) } { }
 
         constexpr fixed() noexcept = default;
         constexpr fixed(const fixed&) noexcept = default;
