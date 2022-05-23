@@ -76,7 +76,11 @@ namespace jw
         using dummy = detail::functor<decltype([x = std::declval<std::array<void*, N>>()](A...) { })>;
         using storage_t = std::aligned_storage_t<sizeof(dummy), alignof(dummy)>;
 
-        storage_t storage;
+        union
+        {
+            struct { } nothing { };
+            storage_t storage;
+        };
         R(*call)(const void*, A...) { nullptr };
     };
 
@@ -101,7 +105,7 @@ namespace jw
         explicit function(F&& func) : function { create(std::forward<F>(func)) } { }
 
         template<unsigned M> requires (M <= N)
-        function(function<R(A...), M>&& other) : call { other.call }, vtable { other.vtable }
+        function(function<R(A...), M>&& other) : vtable { other.vtable }, call { other.call }
         {
             if (call == nullptr) return;
             vtable->move(&storage, &other.storage);
@@ -109,14 +113,14 @@ namespace jw
         }
 
         template<unsigned M> requires (M <= N)
-        function(const function<R(A...), M>& other) noexcept : call { other.call }, vtable { other.vtable }
+        function(const function<R(A...), M>& other) noexcept : vtable { other.vtable }, call { other.call }
         {
             if (call == nullptr) return;
             vtable->copy(&storage, &other.storage);
         }
 
         template<unsigned M> requires (M <= N)
-        function(const trivial_function<R(A...), M>& other) noexcept : call { other.call }, vtable { detail::functor_vtable::trivial<sizeof(other.storage)>() }
+        function(const trivial_function<R(A...), M>& other) noexcept : vtable { detail::functor_vtable::trivial<sizeof(other.storage)>() }, call { other.call }
         {
             std::memcpy(&storage, &other.storage, sizeof(storage));
         }
@@ -150,9 +154,16 @@ namespace jw
         template<typename, unsigned> friend struct function;
         using storage_t = trivial_function<R(A...), N>::storage_t;
 
-        storage_t storage;
+        union
+        {
+            struct { } nothing { };
+            struct
+            {
+                storage_t storage;
+                const detail::functor_vtable* vtable;
+            };
+        };
         R(*call)(const void*, A...) { nullptr };
-        const detail::functor_vtable* vtable;
     };
 
     template<typename F, typename Signature = typename detail::member_function_signature<decltype(&F::operator())>::type>
