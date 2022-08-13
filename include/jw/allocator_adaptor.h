@@ -26,8 +26,8 @@ namespace jw
 
         using A::A;
         using A::operator=;
-        constexpr bool operator==(const default_constructing_allocator_adaptor&) const noexcept = default;
-        constexpr bool operator!=(const default_constructing_allocator_adaptor&) const noexcept = default;
+        bool operator==(const default_constructing_allocator_adaptor&) const noexcept = default;
+        bool operator!=(const default_constructing_allocator_adaptor&) const noexcept = default;
 
         template <typename T, typename... Args>
         constexpr void construct(T* p, Args&&... args)
@@ -63,8 +63,8 @@ namespace jw
 
         using A::A;
         using A::operator=;
-        constexpr bool operator==(const uses_allocator_adaptor&) const noexcept = default;
-        constexpr bool operator!=(const uses_allocator_adaptor&) const noexcept = default;
+        bool operator==(const uses_allocator_adaptor&) const noexcept = default;
+        bool operator!=(const uses_allocator_adaptor&) const noexcept = default;
 
         template <typename T, typename... Args>
         constexpr void construct(T* p, Args&&... args)
