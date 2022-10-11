@@ -110,7 +110,7 @@ namespace jw
         template<std::integral U> friend constexpr auto operator/(const fixed& f, U v) { return fixed<T, F> { f } /= v; }
 
         template<std::integral U> friend constexpr auto operator+(U v, const fixed& f) { return f + v; }
-        template<std::integral U> friend constexpr auto operator-(U v, const fixed& f) { return f - v; }
+        template<std::integral U> friend constexpr auto operator-(U v, const fixed& f) { return fixed { v } -= f; }
         template<std::integral U> friend constexpr auto operator*(U v, const fixed& f) { return f * v; }
         template<std::integral U> friend constexpr auto operator/(U v, const fixed& f) { return (static_cast<larger_t<U>>(v) << F) / f.value; }
 
