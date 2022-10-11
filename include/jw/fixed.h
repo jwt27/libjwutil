@@ -57,7 +57,7 @@ namespace jw
         constexpr explicit fixed(U v) noexcept : value { static_cast<T>(v) << F } { }
 
         template<same_sign_int<T> U, std::size_t G>
-        constexpr fixed(const fixed<U, G>& v) noexcept : value { static_cast<T>(shl(static_cast<max_t<T, U>>(v.value), F - G)) } { }
+        constexpr fixed(const fixed<U, G>& v) noexcept : fixed { convert(v) } { }
 
         constexpr fixed() noexcept = default;
         constexpr fixed(const fixed&) noexcept = default;
@@ -129,6 +129,14 @@ namespace jw
         template<std::integral U> constexpr explicit operator U() const noexcept { return static_cast<U>(value) >> F; }
 
     private:
+        template<same_sign_int<T> U, std::size_t G>
+        static constexpr fixed convert(const fixed<U, G>& v) noexcept
+        {
+            constexpr signed round_bits = G - F - 1;
+            constexpr max_t<T, U> rounding = round_bits < 0 ? 0 : 1 << round_bits;
+            return make(shl(static_cast<max_t<T, U>>(v.value) + rounding, F - G));
+        }
+
         struct noshift_t { } constexpr inline static noshift { };
         template<std::integral U> constexpr fixed(noshift_t, U v) noexcept : value { static_cast<T>(v) } { }
     };
