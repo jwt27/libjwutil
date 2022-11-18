@@ -1,4 +1,5 @@
 /* * * * * * * * * * * * * * libjwutil * * * * * * * * * * * * * */
+/* Copyright (C) 2022 J.W. Jagersma, see COPYING.txt for details */
 /* Copyright (C) 2021 J.W. Jagersma, see COPYING.txt for details */
 
 #pragma once
@@ -36,8 +37,8 @@ namespace jw
     using std::log2;
 #   endif
 
-    template<std::integral T> constexpr inline T shr(T v, int c) noexcept { return (c < 0) ? v << -c : v >> c; }
-    template<std::integral T> constexpr inline T shl(T v, int c) noexcept { return (c < 0) ? v >> -c : v << c; }
+    template<typename T> constexpr inline T shr(T v, int c) noexcept { return (c < 0) ? v << -c : v >> c; }
+    template<typename T> constexpr inline T shl(T v, int c) noexcept { return (c < 0) ? v >> -c : v << c; }
 
     template<typename T> inline auto checksum8(const T& value)
     {

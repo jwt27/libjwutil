@@ -38,9 +38,10 @@ namespace jw
                             and std::integral<T> and std::integral<U>;
 
     // Fixed-point data type
-    template<typename T, std::size_t F> requires std::integral<T>
+    template<std::integral T, std::size_t F>
     struct fixed
     {
+        using type = T;
         static constexpr std::size_t bits = std::numeric_limits<T>::digits;
         static constexpr std::size_t int_bits = bits - F;
         static constexpr std::size_t frac_bits = F;
@@ -51,13 +52,16 @@ namespace jw
         static fixed make(T value) noexcept { return fixed { noshift, value }; }
 
         template<std::floating_point U>
-        constexpr explicit fixed(U v) noexcept : value { static_cast<T>(round(v * (1 << F))) } { }
+        constexpr explicit fixed(U v) noexcept : value { static_cast<T>(round(v * (1ULL << F))) } { }
 
         template<std::integral U>
         constexpr explicit fixed(U v) noexcept : value { static_cast<T>(v) << F } { }
 
         template<same_sign_int<T> U, std::size_t G>
         constexpr fixed(const fixed<U, G>& v) noexcept : fixed { convert(v) } { }
+
+        template<std::integral U, std::size_t G>
+        constexpr explicit fixed(const fixed<U, G>& v) noexcept : fixed { convert(v) } { }
 
         constexpr fixed() noexcept = default;
         constexpr fixed(const fixed&) noexcept = default;
@@ -129,18 +133,39 @@ namespace jw
         template<std::integral U> constexpr explicit operator U() const noexcept { return static_cast<U>(value) >> F; }
 
     private:
-        template<same_sign_int<T> U, std::size_t G>
+        template<typename U, std::size_t G>
         static constexpr fixed convert(const fixed<U, G>& v) noexcept
         {
-            constexpr signed round_bits = G - F - 1;
-            constexpr max_t<T, U> rounding = round_bits < 0 ? 0 : 1 << round_bits;
-            return make(shl(static_cast<max_t<T, U>>(v.value) + rounding, F - G));
+            using Max = max_t<T, U>;
+            using Intermediate = std::conditional_t<std::is_signed_v<T>, std::make_signed_t<Max>, std::make_unsigned_t<Max>>;
+            return make(shl(static_cast<Intermediate>(v.value), F - G));
         }
 
         struct noshift_t { } constexpr inline static noshift { };
         template<std::integral U> constexpr fixed(noshift_t, U v) noexcept : value { static_cast<T>(v) } { }
     };
 
+    // Convert fixed-point type to integer with rounding.
     template<typename T, std::size_t F>
-    constexpr T round(const fixed<T, F>& f) noexcept { return (f.value + (1 << (F - 1))) >> F; }
+    inline constexpr T round(const fixed<T, F>& f) noexcept { return (f.value + (1 << (F - 1))) >> F; }
+
+    // Convert fixed-point to fixed-point with rounding.
+    template<typename Fx, typename T, std::size_t F>
+    inline constexpr Fx round_to(const fixed<T, F>& f) noexcept
+    {
+        using T2 = typename Fx::type;
+        using Max = max_t<T, T2>;
+        using Intermediate = std::conditional_t<std::is_signed_v<T2>, std::make_signed_t<Max>, std::make_unsigned_t<Max>>;
+        constexpr auto N = Fx::frac_bits;
+        constexpr int round_bits = F - N - 1;
+        constexpr Intermediate rounding = round_bits < 0 ? 0 : 1 << round_bits;
+        return Fx::make(shl(static_cast<Intermediate>(f.value) + rounding, N - F));
+    }
+
+    // Convert fixed-point to N-bits fixed-point with rounding.
+    template<std::size_t N, typename T, std::size_t F>
+    inline constexpr fixed<T, N> round_to(const fixed<T, F>& f) noexcept
+    {
+        return round_to<fixed<T, N>>(f);
+    }
 }
