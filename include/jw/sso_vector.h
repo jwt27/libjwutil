@@ -1,4 +1,5 @@
 /* * * * * * * * * * * * * * libjwutil * * * * * * * * * * * * * */
+/* Copyright (C) 2023 J.W. Jagersma, see COPYING.txt for details */
 /* Copyright (C) 2022 J.W. Jagersma, see COPYING.txt for details */
 
 #pragma once
@@ -455,7 +456,7 @@ namespace jw
             T* const p = begin() + i;
             try
             {
-                if constexpr (uses_allocator)
+                if constexpr (uses_allocator or not std::is_nothrow_copy_assignable_v<T>)
                 {
                     destroy_n(p, a);
                     uninitialized_fill_n(p, n, value);
@@ -474,7 +475,7 @@ namespace jw
             return p;
         }
 
-        template <std::input_iterator I> requires (std::is_rvalue_reference_v<std::iter_reference_t<I>>)
+        template <std::input_iterator I>
         constexpr iterator insert(const_iterator pos, I first, I last)
         {
             const size_type n = last - first;
@@ -483,35 +484,7 @@ namespace jw
             T* const p = begin() + i;
             try
             {
-                if constexpr (uses_allocator)
-                {
-                    destroy_n(p, a);
-                    uninitialized_move(first, last, p);
-                }
-                else
-                {
-                    std::move(par_unseq(), first, first + a, p);
-                    uninitialized_move(first + a, last, p + a);
-                }
-            }
-            catch (...)
-            {
-                if (p == end() - 1) set_size(size() - 1);
-                throw;
-            }
-            return p;
-        }
-
-        template <std::input_iterator I> requires (not std::is_rvalue_reference_v<std::iter_reference_t<I>>)
-        constexpr iterator insert(const_iterator pos, I first, I last)
-        {
-            const size_type n = last - first;
-            const size_type i = pos - begin();
-            const size_type a = make_gap(i, n);
-            T* const p = begin() + i;
-            try
-            {
-                if constexpr (uses_allocator)
+                if constexpr (uses_allocator or not std::is_nothrow_assignable_v<T, std::iter_reference_t<I>>)
                 {
                     destroy_n(p, a);
                     uninitialized_copy(first, last, p);
@@ -684,9 +657,9 @@ namespace jw
         }
 
         template <typename I>
-        static constexpr void uninitialized_move_n(allocator_type& alloc, I src, size_type n, T* dst)
+        constexpr void uninitialized_move_n(allocator_type& alloc, I src, size_type n, T* dst)
         {
-            std::for_each_n(par_unseq(), index { 0 }, n, [&alloc, src, dst](auto i) { allocator_traits::construct(alloc, dst + i, std::move(src[i])); });
+            uninitialized_copy_n(alloc, std::make_move_iterator(src), n, dst);
         }
 
         template <typename I>
@@ -701,20 +674,65 @@ namespace jw
             uninitialized_copy_n(alloc, src, n, dst);
         }
 
-        template <typename I>
-        static constexpr void uninitialized_copy_n(allocator_type& alloc, I src, size_type n, T* dst)
+        template <std::same_as<T> U, typename I>
+        requires (noexcept(construct(std::declval<U*>(), std::declval<std::iter_reference_t<I>>())))
+        constexpr void uninitialized_copy_n(allocator_type& alloc, I src, size_type n, U* dst) noexcept
         {
             std::for_each_n(par_unseq(), index { 0 }, n, [&alloc, src, dst](auto i) { allocator_traits::construct(alloc, dst + i, src[i]); });
         }
 
-        constexpr void uninitialized_fill_n(T* dst, size_type n, const T& value)
+        template <typename I>
+        constexpr void uninitialized_copy_n(allocator_type& alloc, I src, size_type n, T* dst)
+        {
+            for (unsigned i = 0; i < n; ++i)
+            {
+                try { allocator_traits::construct(alloc, dst + i, src[i]); }
+                catch (...)
+                {
+                    destroy_n(dst, i);
+                    throw;
+                }
+            }
+        }
+
+        template<std::same_as<T> U>
+        requires (noexcept(construct(std::declval<U*>(), std::declval<const U&>())))
+        constexpr void uninitialized_fill_n(U* dst, size_type n, const U& value) noexcept
         {
             std::for_each_n(par_unseq(), index { 0 }, n, [this, dst, &value](auto i) { construct(dst + i, value); });
         }
 
-        constexpr void uninitialized_default_construct_n(T* dst, size_type n)
+        constexpr void uninitialized_fill_n(T* dst, size_type n, const T& value)
+        {
+            for (unsigned i = 0; i < n; ++i)
+            {
+                try { construct(dst + i, value); }
+                catch (...)
+                {
+                    destroy_n(dst, i);
+                    throw;
+                }
+            }
+        }
+
+        template<std::same_as<T> U>
+        requires (noexcept(construct(std::declval<U*>())))
+        constexpr void uninitialized_default_construct_n(U* dst, size_type n) noexcept
         {
             std::for_each_n(par_unseq(), index { 0 }, n, [this, dst](auto i) { construct(dst + i); });
+        }
+
+        constexpr void uninitialized_default_construct_n(T* dst, size_type n)
+        {
+            for (unsigned i = 0; i < n; ++i)
+            {
+                try { construct(dst + i); }
+                catch (...)
+                {
+                    destroy_n(dst, i);
+                    throw;
+                }
+            }
         }
 
         constexpr void destroy_n(T* p, size_type n) noexcept
@@ -724,6 +742,7 @@ namespace jw
 
         template<typename... A>
         constexpr void construct(T* p, A&&... args)
+            noexcept(noexcept(allocator_traits::construct(std::declval<Alloc&>(), std::declval<T*>(), std::declval<A>()...)))
         {
             allocator_traits::construct(alloc, p, std::forward<A>(args)...);
         }
@@ -786,7 +805,7 @@ namespace jw
             assert(n < capacity());
             const auto sz = size();
             auto* const dst = data();
-            if constexpr (uses_allocator)
+            if constexpr (uses_allocator or not std::is_nothrow_copy_assignable_v<T>)
             {
                 destroy_n(dst, sz);
                 uninitialized_fill_n(dst, n, v);
@@ -808,7 +827,7 @@ namespace jw
             assert(n < capacity());
             const auto sz = size();
             auto* const dst = data();
-            if constexpr (uses_allocator)
+            if constexpr (uses_allocator or not std::is_nothrow_move_assignable_v<T>)
             {
                 destroy_n(dst, sz);
                 uninitialized_move_n(src, n, dst);
@@ -830,7 +849,7 @@ namespace jw
             assert(n < capacity());
             const auto sz = size();
             auto* const dst = data();
-            if constexpr (uses_allocator)
+            if constexpr (uses_allocator or not std::is_nothrow_copy_assignable_v<T>)
             {
                 destroy_n(dst, sz);
                 uninitialized_copy_n(src, n, dst);
