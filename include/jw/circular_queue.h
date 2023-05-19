@@ -262,6 +262,11 @@ namespace jw
         const_iterator  end() const noexcept { return { this, load_tail_for_read() }; }
         const_iterator cend() const noexcept { return { this, load_tail_for_read() }; }
 
+        // Returns the end iterator that is furthest removed from i, while
+        // keeping the range [i, end) contiguous in memory.
+        iterator       contiguous_end(const_iterator i)       noexcept { return { this, find_contiguous_end(i.position()) }; }
+        const_iterator contiguous_end(const_iterator i) const noexcept { return { this, find_contiguous_end(i.position()) }; }
+
         // Return number of elements currently in the queue.  May be used by
         // both reader and writer.
         size_type size() const noexcept
@@ -410,6 +415,12 @@ namespace jw
             const auto h = load_head_for_read();
             if (i >= distance(h, load_tail_for_read())) throw std::out_of_range { "index past end" };
             return h;
+        }
+
+        size_type find_contiguous_end(size_type i) const noexcept
+        {
+            const auto t = load_tail_for_read();
+            return i > t ? N : t;
         }
 
         auto head_atomic() noexcept { return std::atomic_ref<size_type> { head }; }
