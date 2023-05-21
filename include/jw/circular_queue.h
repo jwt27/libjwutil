@@ -109,9 +109,11 @@ namespace jw
         // Add an element to the end.  No iterators are invalidated.  Throws
         // on overflow.
         template<typename... A>
-        void emplace_back(A&&... args)
+        reference emplace_back(A&&... args)
         {
-            if (not try_emplace_back(std::forward<A>(args)...)) overflow();
+            const auto ref = try_emplace_back(std::forward<A>(args)...);
+            if (not ref) overflow();
+            return ref;
         }
 
         // Add an element to the end.  No iterators are invalidated.  Returns
@@ -137,15 +139,16 @@ namespace jw
         }
 
         // Add an element to the end.  No iterators are invalidated.  Returns
-        // false on overflow.
+        // empty std::optional on overflow.
         template<typename... A>
-        bool try_emplace_back(A&&... args) noexcept(std::is_nothrow_constructible_v<T, A...>)
+        std::optional<reference> try_emplace_back(A&&... args) noexcept(std::is_nothrow_constructible_v<T, A...>)
         {
             const auto x = bump(1);
-            if (not x) return false;
-            std::construct_at(get(add(*x, -1)), std::forward<A>(args)...);
+            if (not x) return std::nullopt;
+            const auto i = add(*x, -1);
+            std::construct_at(get(i), std::forward<A>(args)...);
             store_tail(*x);
-            return true;
+            return { *get(i) };
         }
 
         // Add multiple elements to the end.  No iterators are invalidated.
