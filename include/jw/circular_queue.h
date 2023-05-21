@@ -264,13 +264,18 @@ namespace jw
         iterator       contiguous_end(const_iterator i)       noexcept { return { this, find_contiguous_end(i.position()) }; }
         const_iterator contiguous_end(const_iterator i) const noexcept { return { this, find_contiguous_end(i.position()) }; }
 
-        // Return number of elements currently in the queue.  May be used by
-        // both reader and writer.
-        size_type size() const noexcept
+        // Return number of elements currently in the queue.  This is meant
+        // for use by the writer thread only.
+        size_type size_for_write() const noexcept
         {
-            if constexpr (Sync == queue_sync::none) return distance(head, tail);
-            else return distance(head_atomic().load(std::memory_order_acquire),
-                                 tail_atomic().load(std::memory_order_acquire));
+            return distance(load_head_for_write(), load_tail_for_write());
+        }
+
+        // Return number of elements currently in the queue.  This is meant
+        // for use by the reader thread only.
+        size_type size_for_read() const noexcept
+        {
+            return distance(load_head_for_read(), load_tail_for_read());
         }
 
         // Returns maximum number of elements that the queue can store.  This
@@ -278,8 +283,8 @@ namespace jw
         // between a "full" and "empty" state.
         size_type max_size() const noexcept { return N - 1; }
 
-        // Check if the queue is empty.  Unlike size(), this is considered a
-        // read operation, and may be a tiny bit more efficient.
+        // Check if the queue is empty.  This is meant for use by the reader
+        // thread only.
         bool empty() const noexcept
         {
             return load_head_for_read() == load_tail_for_read();
