@@ -14,7 +14,7 @@ namespace jw
 {
     enum class queue_sync
     {
-        // Np synchronization.
+        // No synchronization.
         none,
 
         // Reads may be interrupted by writes.
@@ -94,35 +94,29 @@ namespace jw
 
         // Add an element to the end.  No iterators are invalidated.  Throws
         // on overflow.
-        void push(const T& value)
+        void push_back(const T& value)
         {
-            if (not try_push(value)) overflow();
+            if (not try_push_back(value)) overflow();
         }
 
         // Add an element to the end.  No iterators are invalidated.  Throws
         // on overflow.
-        void push(T&& value)
+        void push_back(T&& value)
         {
-            if (not try_push(std::move(value))) overflow();
+            if (not try_push_back(std::move(value))) overflow();
         }
-
-        // For compatibility with std::back_inserter.
-        void push_back(const T& value) { return push(value); }
-
-        // For compatibility with std::back_inserter.
-        void push_back(T&& value) { return push(std::move(value)); }
 
         // Add an element to the end.  No iterators are invalidated.  Throws
         // on overflow.
         template<typename... A>
-        void emplace(A&&... args)
+        void emplace_back(A&&... args)
         {
-            if (not try_emplace(std::forward<A>(args)...)) overflow();
+            if (not try_emplace_back(std::forward<A>(args)...)) overflow();
         }
 
         // Add an element to the end.  No iterators are invalidated.  Returns
         // false on overflow.
-        bool try_push(const T& value) noexcept(std::is_nothrow_copy_constructible_v<T>)
+        bool try_push_back(const T& value) noexcept(std::is_nothrow_copy_constructible_v<T>)
         {
             const auto x = bump(1);
             if (not x) return false;
@@ -133,7 +127,7 @@ namespace jw
 
         // Add an element to the end.  No iterators are invalidated.  Returns
         // false on overflow.
-        bool try_push(T&& value) noexcept(std::is_nothrow_move_constructible_v<T>)
+        bool try_push_back(T&& value) noexcept(std::is_nothrow_move_constructible_v<T>)
         {
             const auto x = bump(1);
             if (not x) return false;
@@ -145,7 +139,7 @@ namespace jw
         // Add an element to the end.  No iterators are invalidated.  Returns
         // false on overflow.
         template<typename... A>
-        bool try_emplace(A&&... args) noexcept(std::is_nothrow_constructible_v<T, A...>)
+        bool try_emplace_back(A&&... args) noexcept(std::is_nothrow_constructible_v<T, A...>)
         {
             const auto x = bump(1);
             if (not x) return false;
@@ -213,7 +207,7 @@ namespace jw
         // Remove the specified number of elements from the beginning.  Only
         // iterators to the removed elements are invalidated.  No bounds checks
         // are performed!
-        void pop(size_type n = 1) noexcept
+        void pop_front(size_type n = 1) noexcept
         {
             const auto h = load_head_for_read();
             destroy(h, n);
@@ -223,15 +217,15 @@ namespace jw
         // Remove elements from the beginning, so that the given iterator
         // becomes the new head position.  Only iterators to the removed
         // elements are invalidated.  No bounds checks are performed!
-        void pop_to(const_iterator it) noexcept
+        void pop_front_to(const_iterator it) noexcept
         {
-            return pop(it.index());
+            return pop_front(it.index());
         }
 
         // Remove all elements.
         void clear() noexcept
         {
-            return pop_to(cend());
+            return pop_front_to(cend());
         }
 
         reference at(size_type i)
