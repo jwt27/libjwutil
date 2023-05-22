@@ -419,10 +419,10 @@ namespace jw
 
             basic_iterator(container_type* queue, size_type pos) noexcept : c { queue }, i { pos } { }
 
-            template<bool Const2, bool Atomic2> requires (not Const or not Const2)
+            template<bool Const2, bool Atomic2> requires (Const or not Const2)
             basic_iterator(const basic_iterator<Const2, Atomic2>& other) noexcept : c { other.c }, i { other.i } { }
 
-            template<bool Const2, bool Atomic2> requires (not Const or not Const2)
+            template<bool Const2, bool Atomic2> requires (Const or not Const2)
             basic_iterator& operator=(const basic_iterator<Const2, Atomic2>& other) noexcept { c = other.c; i = other.i; }
 
             reference operator[](difference_type n) const noexcept { return *(c->get(wrap(i + n))); }
