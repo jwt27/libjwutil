@@ -485,11 +485,23 @@ namespace jw
         template<bool ca, bool aa, bool cb, bool ab>
         friend std::partial_ordering operator<=>(const basic_iterator<ca, aa>& a, const basic_iterator<cb, ab>& b) noexcept
         {
-            if (a.c != b.c) return std::partial_ordering::unordered;
+            if (&a.container() != &b.container()) return std::partial_ordering::unordered;
             const auto x = a - b;
             if (x < 0) return std::partial_ordering::less;
             if (x > 0) return std::partial_ordering::greater;
             return std::partial_ordering::equivalent;
+        }
+
+        template<bool ca, bool aa, bool cb, bool ab>
+        friend basic_iterator<ca and cb, false> min(const basic_iterator<ca, aa>& a, const basic_iterator<cb, ab>& b) noexcept
+        {
+            return { a - b < 0 ? a : b };
+        }
+
+        template<bool ca, bool aa, bool cb, bool ab>
+        friend basic_iterator<ca and cb, false> max(const basic_iterator<ca, aa>& a, const basic_iterator<cb, ab>& b) noexcept
+        {
+            return { a - b > 0 ? a : b };
         }
 
         static_assert(std::random_access_iterator<iterator>);
