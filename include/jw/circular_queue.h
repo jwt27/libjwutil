@@ -436,8 +436,8 @@ namespace jw
 
             basic_iterator& operator++() noexcept { return *this += 1; }
             basic_iterator& operator--() noexcept { return *this -= 1; }
-            basic_iterator<Const, false> operator++(int) noexcept { const auto x = i++; return { c, x }; }
-            basic_iterator<Const, false> operator--(int) noexcept { const auto x = i++; return { c, x }; }
+            basic_iterator<Const, false> operator++(int) noexcept { return { c, i++ }; }
+            basic_iterator<Const, false> operator--(int) noexcept { return { c, i-- }; }
 
             friend basic_iterator<Const, false> operator+(difference_type n, const basic_iterator& it) noexcept { return { it.c, it.position() }; }
 
