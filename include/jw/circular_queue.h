@@ -26,17 +26,22 @@ namespace jw
         // Both reads and writes may occur simultaneously.
         thread
     };
+}
 
+#include <jw/detail/circular_queue.h>
+
+namespace jw
+{
     // Simple and efficient fixed-size circular FIFO.  Can be made thread-safe
     // for a single reader and single writer via template parameter Sync.
     template<typename T, std::size_t N, queue_sync Sync = queue_sync::none>
     requires (std::has_single_bit(N))
-    struct circular_queue
+    struct circular_queue : detail::circular_queue_base<Sync>
     {
         template<bool> struct iterator_t;
 
         using value_type = T;
-        using size_type = std::size_t;
+        using size_type = detail::circular_queue_base<Sync>::size_type;
         using difference_type = std::ptrdiff_t;
         using reference = T&;
         using const_reference = const T&;
@@ -123,7 +128,7 @@ namespace jw
             const auto x = bump(1);
             if (not x) return false;
             std::construct_at(get(add(*x, -1)), value);
-            store_tail(*x);
+            this->store_tail(*x);
             return true;
         }
 
@@ -134,7 +139,7 @@ namespace jw
             const auto x = bump(1);
             if (not x) return false;
             std::construct_at(get(add(*x, -1)), std::move(value));
-            store_tail(*x);
+            this->store_tail(*x);
             return true;
         }
 
@@ -147,7 +152,7 @@ namespace jw
             if (not x) return std::nullopt;
             const auto i = add(*x, -1);
             std::construct_at(get(i), std::forward<A>(args)...);
-            store_tail(*x);
+            this->store_tail(*x);
             return { *get(i) };
         }
 
@@ -181,8 +186,8 @@ namespace jw
         {
             const auto x = bump(last - first);
             if (not x) return false;
-            std::uninitialized_copy(std::execution::par_unseq, first, last, iterator { this, load_tail_for_write() });
-            store_tail(*x);
+            std::uninitialized_copy(std::execution::par_unseq, first, last, iterator { this, this->load_tail(access::write) });
+            this->store_tail(*x);
             return true;
         }
 
@@ -203,7 +208,7 @@ namespace jw
                     throw;
                 }
             }
-            store_tail(*x);
+            this->store_tail(*x);
             return true;
         }
 
@@ -212,9 +217,9 @@ namespace jw
         // are performed!
         void pop_front(size_type n = 1) noexcept
         {
-            const auto h = load_head_for_read();
+            const auto h = this->load_head(access::read);
             destroy(h, n);
-            store_head(add(h, n));
+            this->store_head(add(h, n));
         }
 
         // Remove elements from the beginning, so that the given iterator
@@ -243,21 +248,21 @@ namespace jw
             return get(add(h, i));
         }
 
-        reference       operator[](size_type i)       noexcept { return get(add(load_head_for_read(), i)); }
-        const_reference operator[](size_type i) const noexcept { return get(add(load_head_for_read(), i)); }
+        reference       operator[](size_type i)       noexcept { return get(add(this->load_head(access::read), i)); }
+        const_reference operator[](size_type i) const noexcept { return get(add(this->load_head(access::read), i)); }
 
-        reference       front()       noexcept { return *get(load_head_for_read()); }
-        const_reference front() const noexcept { return *get(load_head_for_read()); }
-        reference       back()        noexcept { return *get(load_tail_for_read() - 1); }
-        const_reference back()  const noexcept { return *get(load_tail_for_read() - 1); }
+        reference       front()       noexcept { return *get(this->load_head(access::read)); }
+        const_reference front() const noexcept { return *get(this->load_head(access::read)); }
+        reference       back()        noexcept { return *get(this->load_tail(access::read) - 1); }
+        const_reference back()  const noexcept { return *get(this->load_tail(access::read) - 1); }
 
-        iterator        begin()       noexcept { return { this, load_head_for_read() }; }
-        const_iterator  begin() const noexcept { return { this, load_head_for_read() }; }
-        const_iterator cbegin() const noexcept { return { this, load_head_for_read() }; }
+        iterator        begin()       noexcept { return { this, this->load_head(access::read) }; }
+        const_iterator  begin() const noexcept { return { this, this->load_head(access::read) }; }
+        const_iterator cbegin() const noexcept { return { this, this->load_head(access::read) }; }
 
-        iterator        end()       noexcept { return { this, load_tail_for_read() }; }
-        const_iterator  end() const noexcept { return { this, load_tail_for_read() }; }
-        const_iterator cend() const noexcept { return { this, load_tail_for_read() }; }
+        iterator        end()       noexcept { return { this, this->load_tail(access::read) }; }
+        const_iterator  end() const noexcept { return { this, this->load_tail(access::read) }; }
+        const_iterator cend() const noexcept { return { this, this->load_tail(access::read) }; }
 
         // Returns the end iterator that is furthest removed from i, while
         // keeping the range [i, end) contiguous in memory.
@@ -268,14 +273,14 @@ namespace jw
         // for use by the writer thread only.
         size_type size_for_write() const noexcept
         {
-            return distance(load_head_for_write(), load_tail_for_write());
+            return distance(this->load_head(access::write), this->load_tail(access::write));
         }
 
         // Return number of elements currently in the queue.  This is meant
         // for use by the reader thread only.
         size_type size_for_read() const noexcept
         {
-            return distance(load_head_for_read(), load_tail_for_read());
+            return distance(this->load_head(access::read), this->load_tail(access::read));
         }
 
         // Returns maximum number of elements that the queue can store.  This
@@ -287,7 +292,7 @@ namespace jw
         // thread only.
         bool empty() const noexcept
         {
-            return load_head_for_read() == load_tail_for_read();
+            return this->load_head(access::read) == this->load_tail(access::read);
         }
 
         template<bool Const>
@@ -329,7 +334,8 @@ namespace jw
             friend iterator_t operator+(difference_type n, const iterator_t& it) noexcept { return it += n; }
 
             size_type position() const noexcept { return i; }
-            size_type index() const noexcept { return distance(c->load_head_for_read(), i); }
+            size_type index() const noexcept { return distance(c->load_head(), i); }
+            container_type& container() const noexcept { return *c; }
 
             friend void swap(iterator_t& a, iterator_t& b)
             {
@@ -344,9 +350,14 @@ namespace jw
             size_type i;            // Absolute position
         };
 
+        // Assumes both iterators are from the same container, since it
+        // doesn't make any sense to compare them otherwise.  If you do need
+        // to check if two iterators are from the same container, use
+        // operator <=>.
         template<bool ca, bool cb> friend difference_type operator-(const iterator_t<ca>& a, const iterator_t<cb>& b)
         {
-            return a.index() - b.index();
+            const auto h = a.container().load_head();
+            return distance(h, a.position()) - distance(h, b.position());
         }
 
         template<bool ca, bool cb> friend bool operator==(const iterator_t<ca>& a, const iterator_t<cb>& b) noexcept
@@ -371,6 +382,8 @@ namespace jw
         static_assert(std::random_access_iterator<iterator>);
 
     private:
+        using access = detail::queue_access;
+
         static void overflow() { throw std::length_error { "circular_queue overflow" }; }
 
         static size_type wrap(size_type i) noexcept{ return i & (N - 1); }
@@ -398,8 +411,8 @@ namespace jw
         // available.
         std::optional<size_type> bump(size_type n)
         {
-            const auto t = load_tail_for_write();
-            if (distance(load_head_for_write(), t) + n >= N) return std::nullopt;
+            const auto t = this->load_tail(access::write);
+            if (distance(this->load_head(access::write), t) + n >= N) return std::nullopt;
             return { add(t, n) };
         }
 
@@ -414,78 +427,17 @@ namespace jw
         // Throw if position is out of bounds.  Return current head.
         size_type check_pos(size_type i) const
         {
-            const auto h = load_head_for_read();
-            if (i >= distance(h, load_tail_for_read())) throw std::out_of_range { "index past end" };
+            const auto h = this->load_head(access::read);
+            if (i >= distance(h, this->load_tail(access::read))) throw std::out_of_range { "index past end" };
             return h;
         }
 
         size_type find_contiguous_end(size_type i) const noexcept
         {
-            const auto t = load_tail_for_read();
+            const auto t = this->load_tail(access::read);
             return i > t ? N : t;
         }
 
-        auto head_atomic() noexcept { return std::atomic_ref<size_type> { head }; }
-        auto tail_atomic() noexcept { return std::atomic_ref<size_type> { tail }; }
-        auto head_atomic() const noexcept { return std::atomic_ref<const size_type> { head }; }
-        auto tail_atomic() const noexcept { return std::atomic_ref<const size_type> { tail }; }
-
-        auto load_head_for_read() const noexcept
-        {
-            return head;
-        }
-
-        auto load_head_for_write() const noexcept
-        {
-            switch (Sync)
-            {
-            case queue_sync::none:
-            case queue_sync::write_irq: return head;
-            case queue_sync::read_irq:
-            case queue_sync::thread: return head_atomic().load(std::memory_order_acquire);
-            }
-        }
-
-        auto load_tail_for_read() const noexcept
-        {
-            switch (Sync)
-            {
-            case queue_sync::none:
-            case queue_sync::read_irq: return tail;
-            case queue_sync::write_irq:
-            case queue_sync::thread: return tail_atomic().load(std::memory_order_acquire);
-            }
-        }
-
-        auto load_tail_for_write() const noexcept
-        {
-            return tail;
-        }
-
-        void store_head(size_type h) noexcept
-        {
-            switch (Sync)
-            {
-            case queue_sync::none: head = h; return;
-            case queue_sync::read_irq: return volatile_store(&head, h);
-            case queue_sync::write_irq:
-            case queue_sync::thread: return head_atomic().store(h, std::memory_order_release);
-            }
-        }
-
-        void store_tail(size_type t) noexcept
-        {
-            switch (Sync)
-            {
-            case queue_sync::none: tail = t; return;
-            case queue_sync::write_irq: return volatile_store(&tail, t);
-            case queue_sync::read_irq:
-            case queue_sync::thread: return tail_atomic().store(t, std::memory_order_release);
-            }
-        }
-
-        alignas(std::atomic_ref<size_type>::required_alignment) size_type head { 0 };
-        alignas(std::atomic_ref<size_type>::required_alignment) size_type tail { 0 };
         std::array<std::aligned_storage_t<sizeof(T), alignof(T)>, N> storage;
     };
 }
