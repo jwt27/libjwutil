@@ -252,7 +252,7 @@ namespace jw
         // iterator to the first inserted element.  Other iterators are not
         // invalidated.  Returns an empty std::optional on overflow, and in
         // that case, no elements are added.
-        std::optional<iterator> try_append(size_type n, const_reference value)
+        std::optional<iterator> try_append(size_type n, const_reference value) noexcept(std::is_nothrow_copy_constructible_v<T>)
         {
             const auto x = bump(n);
             if (not x) return std::nullopt;
@@ -281,7 +281,7 @@ namespace jw
         // iterator to the first inserted element.  Other iterators are not
         // invalidated.  Returns an empty std::optional on overflow, and in
         // that case, no elements are added.
-        std::optional<iterator> try_append(size_type n)
+        std::optional<iterator> try_append(size_type n) noexcept(std::is_nothrow_default_constructible_v<T>)
         {
             const auto x = bump(n);
             if (not x) return std::nullopt;
@@ -309,7 +309,7 @@ namespace jw
         // Fill the queue with copy-constructed elements and return an
         // iterator to the first inserted element.  Other iterators are not
         // invalidated.
-        iterator fill(const_reference value) noexcept
+        iterator fill(const_reference value) noexcept(std::is_nothrow_copy_constructible_v<T>)
         {
             return *try_append(max_size() - size_for_write(), value);
         }
@@ -317,7 +317,7 @@ namespace jw
         // Fill the queue with default-constructed elements and return an
         // iterator to the first inserted element.  Other iterators are not
         // invalidated.
-        iterator fill() noexcept
+        iterator fill() noexcept(std::is_nothrow_default_constructible_v<T>)
         {
             return *try_append(max_size() - size_for_write());
         }
