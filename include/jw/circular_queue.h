@@ -175,6 +175,28 @@ namespace jw
             return *i;
         }
 
+        // Add multiple copy-constructed elements to the end and return an
+        // iterator to the first inserted element.  Other iterators are not
+        // invalidated.  Throws on overflow, and in that case, no elements are
+        // added.
+        iterator append(size_type n, const_reference value)
+        {
+            const auto i = try_append(n, value);
+            if (not i) overflow();
+            return *i;
+        }
+
+        // Add multiple default-constructed elements to the end and return an
+        // iterator to the first inserted element.  Other iterators are not
+        // invalidated.  Throws on overflow, and in that case, no elements are
+        // added.
+        iterator append(size_type n)
+        {
+            const auto i = try_append(n);
+            if (not i) overflow();
+            return *i;
+        }
+
         // Add multiple elements to the end and return an iterator to the
         // first inserted element.  Other iterators are not invalidated.
         // Returns an empty std::optional on overflow, and in that case, no
@@ -218,6 +240,64 @@ namespace jw
                 {
                     destroy(t, i);
                     throw;
+                }
+            }
+            this->store_tail(*x);
+            return { iterator { this, t } };
+        }
+
+        // Add multiple copy-constructed elements to the end and return an
+        // iterator to the first inserted element.  Other iterators are not
+        // invalidated.  Returns an empty std::optional on overflow, and in
+        // that case, no elements are added.
+        std::optional<iterator> try_append(size_type n, const_reference value)
+        {
+            const auto x = bump(n);
+            if (not x) return std::nullopt;
+            const auto t = add(*x, -n);
+            if constexpr (std::is_nothrow_copy_constructible_v<T>)
+            {
+                std::uninitialized_fill_n(std::execution::par_unseq, iterator { this, t }, n, value);
+            }
+            else
+            {
+                for (unsigned i = 0; i < n; ++i)
+                {
+                    try { std::construct_at(get(add(t, i)), value); }
+                    catch (...)
+                    {
+                        destroy(t, i);
+                        throw;
+                    }
+                }
+            }
+            this->store_tail(*x);
+            return { iterator { this, t } };
+        }
+
+        // Add multiple default-constructed elements to the end and return an
+        // iterator to the first inserted element.  Other iterators are not
+        // invalidated.  Returns an empty std::optional on overflow, and in
+        // that case, no elements are added.
+        std::optional<iterator> try_append(size_type n)
+        {
+            const auto x = bump(n);
+            if (not x) return std::nullopt;
+            const auto t = add(*x, -n);
+            if constexpr (std::is_nothrow_default_constructible_v<T>)
+            {
+                std::uninitialized_default_construct_n(std::execution::par_unseq, iterator { this, t }, n);
+            }
+            else
+            {
+                for (unsigned i = 0; i < n; ++i)
+                {
+                    try { new (get(add(t, i))) T; }
+                    catch (...)
+                    {
+                        destroy(t, i);
+                        throw;
+                    }
                 }
             }
             this->store_tail(*x);
