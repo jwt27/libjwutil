@@ -156,60 +156,72 @@ namespace jw
             return { *get(i) };
         }
 
-        // Add multiple elements to the end.  No iterators are invalidated.
+        // Add multiple elements to the end and return an iterator to the
+        // first inserted element.  Other iterators are not invalidated.
         // Throws on overflow, and in that case, no elements are added.
-        void append(std::initializer_list<T> list)
+        iterator append(std::initializer_list<T> list)
         {
             return append(list.begin(), list.end());
         }
 
-        // Add multiple elements to the end.  No iterators are invalidated.
+        // Add multiple elements to the end and return an iterator to the
+        // first inserted element.  Other iterators are not invalidated.
         // Throws on overflow, and in that case, no elements are added.
         template<std::forward_iterator I, std::sized_sentinel_for<I> S>
-        void append(I first, S last)
+        iterator append(I first, S last)
         {
-            if (not try_append(first, last)) overflow();
+            const auto i = try_append(first, last);
+            if (not i) overflow();
+            return *i;
         }
 
-        // Add multiple elements to the end.  No iterators are invalidated.
-        // Returns false on overflow, and in that case, no elements are added.
-        bool try_append(std::initializer_list<T> list) noexcept
+        // Add multiple elements to the end and return an iterator to the
+        // first inserted element.  Other iterators are not invalidated.
+        // Returns an empty std::optional on overflow, and in that case, no
+        // elements are added.
+        std::optional<iterator> try_append(std::initializer_list<T> list) noexcept
         {
             return try_append(list.begin(), list.end());
         }
 
-        // Add multiple elements to the end.  No iterators are invalidated.
-        // Returns false on overflow, and in that case, no elements are added.
+        // Add multiple elements to the end and return an iterator to the
+        // first inserted element.  Other iterators are not invalidated.
+        // Returns an empty std::optional on overflow, and in that case, no
+        // elements are added.
         template<std::forward_iterator I, std::sized_sentinel_for<I> S>
         requires (std::is_nothrow_constructible_v<T, std::iter_reference_t<I>>)
-        bool try_append(I first, S last) noexcept
+        std::optional<iterator> try_append(I first, S last) noexcept
         {
             const auto x = bump(last - first);
-            if (not x) return false;
-            std::uninitialized_copy(std::execution::par_unseq, first, last, iterator { this, this->load_tail(access::write) });
+            if (not x) return std::nullopt;
+            const auto it = iterator { this, this->load_tail(access::write) };
+            std::uninitialized_copy(std::execution::par_unseq, first, last, it);
             this->store_tail(*x);
-            return true;
+            return { it };
         }
 
-        // Add multiple elements to the end.  No iterators are invalidated.
-        // Returns false on overflow, and in that case, no elements are added.
+        // Add multiple elements to the end and return an iterator to the
+        // first inserted element.  Other iterators are not invalidated.
+        // Returns an empty std::optional on overflow, and in that case, no
+        // elements are added.
         template<std::forward_iterator I, std::sized_sentinel_for<I> S>
-        bool try_append(I it, S last)
+        std::optional<iterator> try_append(I it, S last)
         {
             const auto n = last - it;
             const auto x = bump(n);
-            if (not x) return false;
+            if (not x) return std::nullopt;
+            const auto t = add(*x, -n);
             for (unsigned i = 0; i < n; ++i, ++it)
             {
-                try { std::construct_at(get(add(*x, -n + i)), *it); }
+                try { std::construct_at(get(add(t, i)), *it); }
                 catch (...)
                 {
-                    destroy(add(*x, -n), i);
+                    destroy(t, i);
                     throw;
                 }
             }
             this->store_tail(*x);
-            return true;
+            return { iterator { this, t } };
         }
 
         // Remove the specified number of elements from the beginning.  Only
