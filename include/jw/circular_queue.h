@@ -38,7 +38,7 @@ namespace jw
     requires (std::has_single_bit(N))
     struct circular_queue : detail::circular_queue_base<Sync>
     {
-        template<bool> struct iterator_t;
+        template<bool, bool> struct basic_iterator;
 
         using value_type = T;
         using size_type = detail::circular_queue_base<Sync>::size_type;
@@ -47,8 +47,10 @@ namespace jw
         using const_reference = const T&;
         using pointer = T*;
         using const_pointer = const T*;
-        using iterator = iterator_t<false>;
-        using const_iterator = iterator_t<true>;
+        using iterator = basic_iterator<false, false>;
+        using const_iterator = basic_iterator<true, false>;
+        using atomic_iterator = basic_iterator<false, true>;
+        using atomic_const_iterator = basic_iterator<true, true>;
 
         circular_queue() noexcept = default;
 
@@ -403,8 +405,8 @@ namespace jw
             return this->load_head(access::read) == this->load_tail(access::read);
         }
 
-        template<bool Const>
-        struct iterator_t
+        template<bool Const, bool Atomic>
+        struct basic_iterator
         {
             using container_type = std::conditional_t<Const, const circular_queue, circular_queue>;
             using difference_type = circular_queue::difference_type;
@@ -413,39 +415,38 @@ namespace jw
             using reference = value_type&;
             using iterator_category = std::random_access_iterator_tag;
 
-            iterator_t() noexcept = default;
-            iterator_t(const iterator_t&) noexcept = default;
-            iterator_t& operator=(const iterator_t&) noexcept = default;
+            basic_iterator() noexcept = default;
 
-            iterator_t(container_type* _c, size_type _i) noexcept : c { _c }, i { _i } { }
+            basic_iterator(container_type* queue, size_type pos) noexcept : c { queue }, i { pos } { }
 
-            template<bool Const2> requires (Const and not Const2)
-            iterator_t(const iterator_t<Const2>& other) noexcept : c { other.c }, i { other.i } { }
+            template<bool Const2, bool Atomic2> requires (not Const or not Const2)
+            basic_iterator(const basic_iterator<Const2, Atomic2>& other) noexcept : c { other.c }, i { other.i } { }
 
-            template<bool Const2> requires (Const and not Const2)
-            iterator_t& operator=(const iterator_t<Const2>& other) noexcept { c = other.c; i = other.i; }
+            template<bool Const2, bool Atomic2> requires (not Const or not Const2)
+            basic_iterator& operator=(const basic_iterator<Const2, Atomic2>& other) noexcept { c = other.c; i = other.i; }
 
-            reference operator[](difference_type n) const noexcept { return *(c->get(add(i, n))); }
-            reference operator*() const noexcept { return *(c->get(i)); }
-            pointer operator->() const noexcept { return c->get(i); }
+            reference operator[](difference_type n) const noexcept { return *(c->get(wrap(i + n))); }
+            reference operator*() const noexcept { return *(c->get(position())); }
+            pointer operator->() const noexcept { return c->get(position()); }
 
-            iterator_t& operator+=(difference_type n) noexcept { i = add(i, +n); return *this; }
-            iterator_t& operator-=(difference_type n) noexcept { i = add(i, -n); return *this; }
-            iterator_t operator+(difference_type n) const noexcept { iterator_t it = *this; it += n; return it; }
-            iterator_t operator-(difference_type n) const noexcept { iterator_t it = *this; it -= n; return it; }
+            basic_iterator& operator+=(difference_type n) noexcept { i += n; return *this; }
+            basic_iterator& operator-=(difference_type n) noexcept { i -= n; return *this; }
+            basic_iterator<Const, false> operator+(difference_type n) const noexcept { return { c, i + n }; }
+            basic_iterator<Const, false> operator-(difference_type n) const noexcept { return { c, i - n }; }
 
-            iterator_t& operator++() noexcept { return *this += 1; }
-            iterator_t& operator--() noexcept { return *this -= 1; }
-            iterator_t operator++(int) noexcept { iterator_t it = *this; *this += 1; return it; }
-            iterator_t operator--(int) noexcept { iterator_t it = *this; *this -= 1; return it; }
+            basic_iterator& operator++() noexcept { return *this += 1; }
+            basic_iterator& operator--() noexcept { return *this -= 1; }
+            basic_iterator<Const, false> operator++(int) noexcept { const auto x = i++; return { c, x }; }
+            basic_iterator<Const, false> operator--(int) noexcept { const auto x = i++; return { c, x }; }
 
-            friend iterator_t operator+(difference_type n, const iterator_t& it) noexcept { return it += n; }
+            friend basic_iterator<Const, false> operator+(difference_type n, const basic_iterator& it) noexcept { return { it.c, it.position() }; }
 
-            size_type position() const noexcept { return i; }
-            size_type index() const noexcept { return distance(c->load_head(), i); }
+            basic_iterator<Const, true> atomic() const noexcept { return { c, position() }; }
+            size_type position() const noexcept { return wrap(i); }
+            size_type index() const noexcept { return distance(c->load_head(), position()); }
             container_type& container() const noexcept { return *c; }
 
-            friend void swap(iterator_t& a, iterator_t& b)
+            friend void swap(basic_iterator& a, basic_iterator& b)
             {
                 using std::swap;
                 swap(a.c, b.c);
@@ -453,32 +454,36 @@ namespace jw
             }
 
         private:
-            template<bool> friend struct iterator_t;
+            template<bool, bool> friend struct basic_iterator;
             container_type* c;
-            size_type i;            // Absolute position
+            std::conditional_t<Atomic, std::atomic<size_type>, size_type> i;
         };
 
         // Assumes both iterators are from the same container, since it
         // doesn't make any sense to compare them otherwise.  If you do need
         // to check if two iterators are from the same container, use
         // operator <=>.
-        template<bool ca, bool cb> friend difference_type operator-(const iterator_t<ca>& a, const iterator_t<cb>& b)
+        template<bool ca, bool aa, bool cb, bool ab>
+        friend difference_type operator-(const basic_iterator<ca, aa>& a, const basic_iterator<cb, ab>& b) noexcept
         {
             const auto h = a.container().load_head();
             return distance(h, a.position()) - distance(h, b.position());
         }
 
-        template<bool ca, bool cb> friend bool operator==(const iterator_t<ca>& a, const iterator_t<cb>& b) noexcept
+        template<bool ca, bool aa, bool cb, bool ab>
+        friend bool operator==(const basic_iterator<ca, aa>& a, const basic_iterator<cb, ab>& b) noexcept
         {
             return static_cast<const value_type*>(&*a) == static_cast<const value_type*>(&*b);
         }
 
-        template<bool ca, bool cb> friend bool operator!=(const iterator_t<ca>& a, const iterator_t<cb>& b) noexcept
+        template<bool ca, bool aa, bool cb, bool ab>
+        friend bool operator!=(const basic_iterator<ca, aa>& a, const basic_iterator<cb, ab>& b) noexcept
         {
             return not (a == b);
         }
 
-        template<bool ca, bool cb> friend std::partial_ordering operator<=>(const iterator_t<ca>& a, const iterator_t<cb>& b) noexcept
+        template<bool ca, bool aa, bool cb, bool ab>
+        friend std::partial_ordering operator<=>(const basic_iterator<ca, aa>& a, const basic_iterator<cb, ab>& b) noexcept
         {
             if (a.c != b.c) return std::partial_ordering::unordered;
             const auto x = a - b;
