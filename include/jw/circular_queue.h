@@ -304,6 +304,22 @@ namespace jw
             return { iterator { this, t } };
         }
 
+        // Fill the queue with copy-constructed elements and return an
+        // iterator to the first inserted element.  Other iterators are not
+        // invalidated.
+        iterator fill(const_reference value) noexcept
+        {
+            return *try_append(max_size() - size_for_write(), value);
+        }
+
+        // Fill the queue with default-constructed elements and return an
+        // iterator to the first inserted element.  Other iterators are not
+        // invalidated.
+        iterator fill() noexcept
+        {
+            return *try_append(max_size() - size_for_write());
+        }
+
         // Remove the specified number of elements from the beginning.  Only
         // iterators to the removed elements are invalidated.  No bounds checks
         // are performed!
