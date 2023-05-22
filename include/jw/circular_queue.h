@@ -444,7 +444,7 @@ namespace jw
             basic_iterator<Const, true> atomic() const noexcept { return { c, position() }; }
             size_type position() const noexcept { return wrap(i); }
             size_type index() const noexcept { return distance(c->load_head(), position()); }
-            container_type& container() const noexcept { return *c; }
+            container_type* container() const noexcept { return c; }
 
             friend void swap(basic_iterator& a, basic_iterator& b)
             {
@@ -466,7 +466,7 @@ namespace jw
         template<bool ca, bool aa, bool cb, bool ab>
         friend difference_type operator-(const basic_iterator<ca, aa>& a, const basic_iterator<cb, ab>& b) noexcept
         {
-            const auto h = a.container().load_head();
+            const auto h = a.container()->load_head();
             return distance(h, a.position()) - distance(h, b.position());
         }
 
@@ -485,7 +485,7 @@ namespace jw
         template<bool ca, bool aa, bool cb, bool ab>
         friend std::partial_ordering operator<=>(const basic_iterator<ca, aa>& a, const basic_iterator<cb, ab>& b) noexcept
         {
-            if (&a.container() != &b.container()) return std::partial_ordering::unordered;
+            if (a.container() != b.container()) return std::partial_ordering::unordered;
             const auto x = a - b;
             if (x < 0) return std::partial_ordering::less;
             if (x > 0) return std::partial_ordering::greater;
