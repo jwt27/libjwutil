@@ -32,14 +32,119 @@ namespace jw
 
 namespace jw
 {
+    template<typename Queue, bool Atomic>
+    struct circular_queue_iterator
+    {
+        using container_type = Queue;
+        using size_type = Queue::size_type;
+        using difference_type = Queue::difference_type;
+        using value_type = std::conditional_t<std::is_const_v<Queue>, const typename Queue::value_type, typename Queue::value_type>;
+        using pointer = value_type*;
+        using reference = value_type&;
+        using iterator_category = std::random_access_iterator_tag;
+
+        circular_queue_iterator() noexcept = default;
+
+        circular_queue_iterator(container_type* queue, size_type pos) noexcept : c { queue }, i { pos } { }
+
+        template<typename Queue2, bool Atomic2> requires (std::is_const_v<Queue> or not std::is_const_v<Queue2>)
+        circular_queue_iterator(const circular_queue_iterator<Queue2, Atomic2>& other) noexcept : c { other.c }, i { other.i } { }
+
+        template<typename Queue2, bool Atomic2> requires (std::is_const_v<Queue> or not std::is_const_v<Queue2>)
+        circular_queue_iterator& operator=(const circular_queue_iterator<Queue2, Atomic2>& other) noexcept { c = other.c; i = other.i; }
+
+        reference operator[](difference_type n) const noexcept { return *(c->get(c->wrap(i + n))); }
+        reference operator*() const noexcept { return *(c->get(position())); }
+        pointer operator->() const noexcept { return c->get(position()); }
+
+        circular_queue_iterator& operator+=(difference_type n) noexcept { i += n; return *this; }
+        circular_queue_iterator& operator-=(difference_type n) noexcept { i -= n; return *this; }
+        circular_queue_iterator<container_type, false> operator+(difference_type n) const noexcept { return { c, i + n }; }
+        circular_queue_iterator<container_type, false> operator-(difference_type n) const noexcept { return { c, i - n }; }
+
+        circular_queue_iterator& operator++() noexcept { return *this += 1; }
+        circular_queue_iterator& operator--() noexcept { return *this -= 1; }
+        circular_queue_iterator<container_type, false> operator++(int) noexcept { return { c, i++ }; }
+        circular_queue_iterator<container_type, false> operator--(int) noexcept { return { c, i-- }; }
+
+        friend circular_queue_iterator<container_type, false> operator+(difference_type n, const circular_queue_iterator& it) noexcept
+        {
+            return { it.c, it.i + n };
+        }
+
+        // Assumes both iterators are from the same container, since it
+        // doesn't make any sense to compare them otherwise.  If you do need
+        // to check if two iterators are from the same container, use
+        // operator <=>.
+        template<typename Q2, bool A2> requires (std::is_same_v<std::remove_const_t<Queue>, std::remove_const_t<Q2>>)
+        difference_type operator-(const circular_queue_iterator<Q2, A2>& b) const noexcept
+        {
+            const auto h = c->load_head();
+            return c->distance(h, position()) - c->distance(h, b.position());
+        }
+
+        template<typename Q2, bool A2> requires (std::is_same_v<std::remove_const_t<Queue>, std::remove_const_t<Q2>>)
+        bool operator==(const circular_queue_iterator<Q2, A2>& b) const noexcept
+        {
+            return &**this == &*b;
+        }
+
+        template<typename Q2, bool A2> requires (std::is_same_v<std::remove_const_t<Queue>, std::remove_const_t<Q2>>)
+        bool operator!=(const circular_queue_iterator<Q2, A2>& b) const noexcept
+        {
+            return not (*this == b);
+        }
+
+        template<typename Q2, bool A2> requires (std::is_same_v<std::remove_const_t<Queue>, std::remove_const_t<Q2>>)
+        std::partial_ordering operator<=>(const circular_queue_iterator<Q2, A2>& b) const noexcept
+        {
+            if (container() != b.container()) return std::partial_ordering::unordered;
+            const auto x = *this - b;
+            if (x < 0) return std::partial_ordering::less;
+            if (x > 0) return std::partial_ordering::greater;
+            return std::partial_ordering::equivalent;
+        }
+
+        size_type position() const noexcept { return c->wrap(i); }
+        size_type index() const noexcept { return c->distance(c->load_head(), position()); }
+        container_type* container() const noexcept { return c; }
+        circular_queue_iterator<container_type, true> atomic() const noexcept { return { c, i }; }
+
+        friend void swap(circular_queue_iterator& a, circular_queue_iterator& b)
+        {
+            using std::swap;
+            swap(a.c, b.c);
+            swap(a.i, b.i);
+        }
+
+    private:
+        template<typename, bool> friend struct circular_queue_iterator;
+        container_type* c;
+        std::conditional_t<Atomic, std::atomic<size_type>, size_type> i;
+    };
+
+    // Given two iterators, returns the one closest to begin().
+    template<typename Qa, bool Aa, typename Qb, bool Ab> requires (std::is_same_v<std::remove_const_t<Qa>, std::remove_const_t<Qb>>)
+    circular_queue_iterator<std::conditional_t<std::is_const_v<Qa> and std::is_const_v<Qb>, const Qa, std::remove_const_t<Qa>>, false>
+    min(const circular_queue_iterator<Qa, Aa>& a, const circular_queue_iterator<Qb, Ab>& b) noexcept
+    {
+        return { a - b < 0 ? a : b };
+    }
+
+    // Given two iterators, returns the one furthest removed from begin().
+    template<typename Qa, bool Aa, typename Qb, bool Ab> requires (std::is_same_v<std::remove_const_t<Qa>, std::remove_const_t<Qb>>)
+    circular_queue_iterator<std::conditional_t<std::is_const_v<Qa> and std::is_const_v<Qb>, const Qa, std::remove_const_t<Qa>>, false>
+    max(const circular_queue_iterator<Qa, Aa>& a, const circular_queue_iterator<Qb, Ab>& b) noexcept
+    {
+        return { a - b > 0 ? a : b };
+    }
+
     // Simple and efficient fixed-size circular FIFO.  Can be made thread-safe
     // for a single reader and single writer via template parameter Sync.
     template<typename T, std::size_t N, queue_sync Sync = queue_sync::none>
     requires (std::has_single_bit(N))
     struct circular_queue : detail::circular_queue_base<Sync>
     {
-        template<bool, bool> struct basic_iterator;
-
         using value_type = T;
         using size_type = detail::circular_queue_base<Sync>::size_type;
         using difference_type = std::ptrdiff_t;
@@ -47,10 +152,10 @@ namespace jw
         using const_reference = const T&;
         using pointer = T*;
         using const_pointer = const T*;
-        using iterator = basic_iterator<false, false>;
-        using const_iterator = basic_iterator<true, false>;
-        using atomic_iterator = basic_iterator<false, true>;
-        using atomic_const_iterator = basic_iterator<true, true>;
+        using iterator = circular_queue_iterator<circular_queue<T, N, Sync>, false>;
+        using const_iterator = circular_queue_iterator<const circular_queue<T, N, Sync>, false>;
+        using atomic_iterator = circular_queue_iterator<circular_queue<T, N, Sync>, true>;
+        using atomic_const_iterator = circular_queue_iterator<const circular_queue<T, N, Sync>, true>;
 
         circular_queue() noexcept = default;
 
@@ -405,108 +510,10 @@ namespace jw
             return this->load_head(access::read) == this->load_tail(access::read);
         }
 
-        template<bool Const, bool Atomic>
-        struct basic_iterator
-        {
-            using container_type = std::conditional_t<Const, const circular_queue, circular_queue>;
-            using difference_type = circular_queue::difference_type;
-            using value_type = std::conditional_t<Const, const circular_queue::value_type, circular_queue::value_type>;
-            using pointer = value_type*;
-            using reference = value_type&;
-            using iterator_category = std::random_access_iterator_tag;
-
-            basic_iterator() noexcept = default;
-
-            basic_iterator(container_type* queue, size_type pos) noexcept : c { queue }, i { pos } { }
-
-            template<bool Const2, bool Atomic2> requires (Const or not Const2)
-            basic_iterator(const basic_iterator<Const2, Atomic2>& other) noexcept : c { other.c }, i { other.i } { }
-
-            template<bool Const2, bool Atomic2> requires (Const or not Const2)
-            basic_iterator& operator=(const basic_iterator<Const2, Atomic2>& other) noexcept { c = other.c; i = other.i; }
-
-            reference operator[](difference_type n) const noexcept { return *(c->get(wrap(i + n))); }
-            reference operator*() const noexcept { return *(c->get(position())); }
-            pointer operator->() const noexcept { return c->get(position()); }
-
-            basic_iterator& operator+=(difference_type n) noexcept { i += n; return *this; }
-            basic_iterator& operator-=(difference_type n) noexcept { i -= n; return *this; }
-            basic_iterator<Const, false> operator+(difference_type n) const noexcept { return { c, i + n }; }
-            basic_iterator<Const, false> operator-(difference_type n) const noexcept { return { c, i - n }; }
-
-            basic_iterator& operator++() noexcept { return *this += 1; }
-            basic_iterator& operator--() noexcept { return *this -= 1; }
-            basic_iterator<Const, false> operator++(int) noexcept { return { c, i++ }; }
-            basic_iterator<Const, false> operator--(int) noexcept { return { c, i-- }; }
-
-            friend basic_iterator<Const, false> operator+(difference_type n, const basic_iterator& it) noexcept { return { it.c, it.position() }; }
-
-            basic_iterator<Const, true> atomic() const noexcept { return { c, position() }; }
-            size_type position() const noexcept { return wrap(i); }
-            size_type index() const noexcept { return distance(c->load_head(), position()); }
-            container_type* container() const noexcept { return c; }
-
-            friend void swap(basic_iterator& a, basic_iterator& b)
-            {
-                using std::swap;
-                swap(a.c, b.c);
-                swap(a.i, b.i);
-            }
-
-        private:
-            template<bool, bool> friend struct basic_iterator;
-            container_type* c;
-            std::conditional_t<Atomic, std::atomic<size_type>, size_type> i;
-        };
-
-        // Assumes both iterators are from the same container, since it
-        // doesn't make any sense to compare them otherwise.  If you do need
-        // to check if two iterators are from the same container, use
-        // operator <=>.
-        template<bool ca, bool aa, bool cb, bool ab>
-        friend difference_type operator-(const basic_iterator<ca, aa>& a, const basic_iterator<cb, ab>& b) noexcept
-        {
-            const auto h = a.container()->load_head();
-            return distance(h, a.position()) - distance(h, b.position());
-        }
-
-        template<bool ca, bool aa, bool cb, bool ab>
-        friend bool operator==(const basic_iterator<ca, aa>& a, const basic_iterator<cb, ab>& b) noexcept
-        {
-            return static_cast<const value_type*>(&*a) == static_cast<const value_type*>(&*b);
-        }
-
-        template<bool ca, bool aa, bool cb, bool ab>
-        friend bool operator!=(const basic_iterator<ca, aa>& a, const basic_iterator<cb, ab>& b) noexcept
-        {
-            return not (a == b);
-        }
-
-        template<bool ca, bool aa, bool cb, bool ab>
-        friend std::partial_ordering operator<=>(const basic_iterator<ca, aa>& a, const basic_iterator<cb, ab>& b) noexcept
-        {
-            if (a.container() != b.container()) return std::partial_ordering::unordered;
-            const auto x = a - b;
-            if (x < 0) return std::partial_ordering::less;
-            if (x > 0) return std::partial_ordering::greater;
-            return std::partial_ordering::equivalent;
-        }
-
-        template<bool ca, bool aa, bool cb, bool ab>
-        friend basic_iterator<ca and cb, false> min(const basic_iterator<ca, aa>& a, const basic_iterator<cb, ab>& b) noexcept
-        {
-            return { a - b < 0 ? a : b };
-        }
-
-        template<bool ca, bool aa, bool cb, bool ab>
-        friend basic_iterator<ca and cb, false> max(const basic_iterator<ca, aa>& a, const basic_iterator<cb, ab>& b) noexcept
-        {
-            return { a - b > 0 ? a : b };
-        }
-
         static_assert(std::random_access_iterator<iterator>);
 
     private:
+        template<typename, bool> friend struct circular_queue_iterator;
         using access = detail::queue_access;
 
         static void overflow() { throw std::length_error { "circular_queue overflow" }; }
