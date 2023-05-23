@@ -48,28 +48,28 @@ namespace jw
         circular_queue_iterator(container_type* queue, size_type pos) noexcept : c { queue }, i { pos } { }
 
         template<typename Queue2, bool Atomic2> requires (std::is_const_v<Queue> or not std::is_const_v<Queue2>)
-        circular_queue_iterator(const circular_queue_iterator<Queue2, Atomic2>& other) noexcept : c { other.c }, i { other.i } { }
+        circular_queue_iterator(const circular_queue_iterator<Queue2, Atomic2>& other) noexcept : c { other.c }, i { other.load() } { }
 
         template<typename Queue2, bool Atomic2> requires (std::is_const_v<Queue> or not std::is_const_v<Queue2>)
-        circular_queue_iterator& operator=(const circular_queue_iterator<Queue2, Atomic2>& other) noexcept { c = other.c; i = other.i; }
+        circular_queue_iterator& operator=(const circular_queue_iterator<Queue2, Atomic2>& other) noexcept { c = other.c; store(other.load()); }
 
-        reference operator[](difference_type n) const noexcept { return *(c->get(c->wrap(i + n))); }
+        reference operator[](difference_type n) const noexcept { return *(c->get(c->wrap(load() + n))); }
         reference operator*() const noexcept { return *(c->get(position())); }
         pointer operator->() const noexcept { return c->get(position()); }
 
-        circular_queue_iterator& operator+=(difference_type n) noexcept { i += n; return *this; }
-        circular_queue_iterator& operator-=(difference_type n) noexcept { i -= n; return *this; }
-        circular_queue_iterator<container_type, false> operator+(difference_type n) const noexcept { return { c, i + n }; }
-        circular_queue_iterator<container_type, false> operator-(difference_type n) const noexcept { return { c, i - n }; }
+        circular_queue_iterator& operator+=(difference_type n) noexcept { fetch_add(n); return *this; }
+        circular_queue_iterator& operator-=(difference_type n) noexcept { fetch_sub(n); return *this; }
+        circular_queue_iterator<container_type, false> operator+(difference_type n) const noexcept { return { c, load() + n }; }
+        circular_queue_iterator<container_type, false> operator-(difference_type n) const noexcept { return { c, load() - n }; }
 
         circular_queue_iterator& operator++() noexcept { return *this += 1; }
         circular_queue_iterator& operator--() noexcept { return *this -= 1; }
-        circular_queue_iterator<container_type, false> operator++(int) noexcept { return { c, i++ }; }
-        circular_queue_iterator<container_type, false> operator--(int) noexcept { return { c, i-- }; }
+        circular_queue_iterator<container_type, false> operator++(int) noexcept { return { c, fetch_add(1) }; }
+        circular_queue_iterator<container_type, false> operator--(int) noexcept { return { c, fetch_sub(1) }; }
 
         friend circular_queue_iterator<container_type, false> operator+(difference_type n, const circular_queue_iterator& it) noexcept
         {
-            return { it.c, it.i + n };
+            return { it.c, it.load() + n };
         }
 
         // Assumes both iterators are from the same container, since it
@@ -105,10 +105,10 @@ namespace jw
             return std::partial_ordering::equivalent;
         }
 
-        size_type position() const noexcept { return c->wrap(i); }
+        size_type position() const noexcept { return c->wrap(load()); }
         size_type index() const noexcept { return c->distance(c->load_head(), position()); }
         container_type* container() const noexcept { return c; }
-        circular_queue_iterator<container_type, true> atomic() const noexcept { return { c, i }; }
+        circular_queue_iterator<container_type, true> atomic() const noexcept { return { c, load() }; }
 
         friend void swap(circular_queue_iterator& a, circular_queue_iterator& b)
         {
@@ -118,6 +118,40 @@ namespace jw
         }
 
     private:
+        size_type load() const noexcept
+        {
+            if constexpr (Atomic) return i.load(std::memory_order_acquire);
+            else return i;
+        }
+
+        void store(size_type x) noexcept
+        {
+            if constexpr (Atomic) i.store(x, std::memory_order_release);
+            else i = x;
+        }
+
+        size_type fetch_add(size_type x) noexcept
+        {
+            if constexpr (Atomic) return i.fetch_add(x, std::memory_order_acq_rel);
+            else
+            {
+                const auto j = i;
+                i += x;
+                return j;
+            }
+        }
+
+        size_type fetch_sub(size_type x) noexcept
+        {
+            if constexpr (Atomic) return i.fetch_sub(x, std::memory_order_acq_rel);
+            else
+            {
+                const auto j = i;
+                i -= x;
+                return j;
+            }
+        }
+
         template<typename, bool> friend struct circular_queue_iterator;
         container_type* c;
         std::conditional_t<Atomic, std::atomic<size_type>, size_type> i;
