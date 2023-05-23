@@ -157,20 +157,28 @@ namespace jw
         std::conditional_t<Atomic, std::atomic<size_type>, size_type> i;
     };
 
-    // Given two iterators, returns the one closest to begin().
+    // Given two iterators, returns the one closest to begin().  Assumes both
+    // iterators are from the same container.
     template<typename Qa, bool Aa, typename Qb, bool Ab> requires (std::is_same_v<std::remove_const_t<Qa>, std::remove_const_t<Qb>>)
-    circular_queue_iterator<std::conditional_t<std::is_const_v<Qa> and std::is_const_v<Qb>, const Qa, std::remove_const_t<Qa>>, false>
-    min(const circular_queue_iterator<Qa, Aa>& a, const circular_queue_iterator<Qb, Ab>& b) noexcept
+    auto min(const circular_queue_iterator<Qa, Aa>& ia, const circular_queue_iterator<Qb, Ab>& ib) noexcept
     {
-        return { a - b < 0 ? a : b };
+        using Q = std::conditional_t<std::is_const_v<Qa> and std::is_const_v<Qb>, const Qa, std::remove_const_t<Qa>>;
+        using I = circular_queue_iterator<Q, false>;
+        Q* q = [&] { if constexpr (std::is_const_v<Qa>) return ib.container(); else return ia.container(); }();
+        const I a { q, ia.position() }, b { q, ib.position() };
+        return a - b < 0 ? a : b;
     }
 
     // Given two iterators, returns the one furthest removed from begin().
+    // Assumes both iterators are from the same container.
     template<typename Qa, bool Aa, typename Qb, bool Ab> requires (std::is_same_v<std::remove_const_t<Qa>, std::remove_const_t<Qb>>)
-    circular_queue_iterator<std::conditional_t<std::is_const_v<Qa> and std::is_const_v<Qb>, const Qa, std::remove_const_t<Qa>>, false>
-    max(const circular_queue_iterator<Qa, Aa>& a, const circular_queue_iterator<Qb, Ab>& b) noexcept
+    auto max(const circular_queue_iterator<Qa, Aa>& ia, const circular_queue_iterator<Qb, Ab>& ib) noexcept
     {
-        return { a - b > 0 ? a : b };
+        using Q = std::conditional_t<std::is_const_v<Qa> and std::is_const_v<Qb>, const Qa, std::remove_const_t<Qa>>;
+        using I = circular_queue_iterator<Q, false>;
+        Q* q = [&] { if constexpr (std::is_const_v<Qa>) return ib.container(); else return ia.container(); }();
+        const I a { q, ia.position() }, b { q, ib.position() };
+        return a - b > 0 ? a : b;
     }
 
     // Simple and efficient fixed-size circular FIFO.  Can be made thread-safe
