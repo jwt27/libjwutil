@@ -100,15 +100,17 @@ namespace jw::detail
             {
             case queue_sync::none:
                 head = h;
-                return;
+                break;
 
             case queue_sync::read_irq:
-                return volatile_store(&head, h);
+                volatile_store(&head, h);
+                break;
 
             case queue_sync::write_irq:
             case queue_sync::thread:
-                return head_atomic().store(h, std::memory_order_release);
+                head_atomic().store(h, std::memory_order_release);
             }
+            assume(head == h);
         }
 
         constexpr void store_tail(size_type t) noexcept
@@ -117,15 +119,17 @@ namespace jw::detail
             {
             case queue_sync::none:
                 tail = t;
-                return;
+                break;
 
             case queue_sync::write_irq:
-                return volatile_store(&tail, t);
+                volatile_store(&tail, t);
+                break;
 
             case queue_sync::read_irq:
             case queue_sync::thread:
-                return tail_atomic().store(t, std::memory_order_release);
+                tail_atomic().store(t, std::memory_order_release);
             }
+            assume(tail == t);
         }
 
     private:
