@@ -37,7 +37,7 @@ namespace jw
 
 namespace jw
 {
-    // Iterator for cirular_queue.  Can be made atomic to synchronize between
+    // Iterator for circular_queue.  Can be made atomic to synchronize between
     // threads.
     template<typename Queue, bool Atomic>
     struct circular_queue_iterator
@@ -208,6 +208,41 @@ namespace jw
         template<typename, std::size_t, queue_sync> friend struct circular_queue_static_storage;
 
         circular_queue_static_storage() noexcept = default;
+    };
+
+    // Dynamically allocated storage backend for circular_queue.
+    template<typename T, queue_sync Sync, typename Alloc>
+    struct circular_queue_dynamic_storage :
+        detail::circular_queue_dynamic_storage_base<T, Sync, Alloc>
+    {
+        using base = detail::circular_queue_dynamic_storage_base<T, Sync, Alloc>;
+
+        using value_type = base::value_type;
+        using size_type = base::size_type;
+        using difference_type = base::difference_type;
+        using reference = value_type&;
+        using const_reference = const value_type&;
+        using pointer = base::pointer;
+        using const_pointer = base::const_pointer;
+
+    protected:
+        template<typename, queue_sync, typename> friend struct circular_queue_dynamic_storage;
+
+        // Create a new dynamic storage of at least the specified size.
+        circular_queue_dynamic_storage(size_type size, const Alloc& allocator = { }) : base { size, allocator } { }
+
+        // Move-construct from other.  Not thread-safe!
+        template<queue_sync S2>
+        circular_queue_dynamic_storage(circular_queue_dynamic_storage<T, S2, Alloc>&& other) : base { std::move(other) } { }
+
+        // Move-assign from other.  Only available if the allocator allows
+        // propagation on move-assignment.  Not thread-safe!
+        template<queue_sync S2>
+        circular_queue_dynamic_storage& operator=(circular_queue_dynamic_storage<T, S2, Alloc>&& other)
+        {
+            base::operator=(std::move(other));
+            return *this;
+        }
     };
 
     // Common interface to circular_queue for both reader and writer threads.
@@ -560,6 +595,13 @@ namespace jw
         friend writer;
     };
 
+    // Circular queue using statically allocated storage.  May use
+    // optimizations such as vectorized copy-construction.
     template<typename T, std::size_t N, queue_sync Sync = queue_sync::none>
     using static_circular_queue = circular_queue<circular_queue_static_storage<T, N, Sync>>;
+
+    // Circular queue using dynamically allocated storage.  Elements are
+    // constructed via the allocator.
+    template<typename T, queue_sync Sync = queue_sync::none, typename Alloc = std::allocator<T>>
+    using dynamic_circular_queue = circular_queue<circular_queue_dynamic_storage<T, Sync, Alloc>>;
 }

@@ -9,7 +9,8 @@ namespace jw::detail
     {
         any,
         read,
-        write
+        write,
+        unsynchronized
     };
 
     template<queue_sync Sync>
@@ -41,6 +42,7 @@ namespace jw::detail
                 }
                 __builtin_unreachable();
 
+            case queue_access::unsynchronized:
             case queue_access::read:
                 return head;
 
@@ -89,46 +91,71 @@ namespace jw::detail
                 }
                 __builtin_unreachable();
 
+            case queue_access::unsynchronized:
             case queue_access::write:
                 return tail;
             }
             __builtin_unreachable();
         }
 
-        constexpr void store_head(std::size_t h) noexcept
+        constexpr void store_head(std::size_t h, queue_access access = queue_access::read) noexcept
         {
-            switch (Sync)
+            switch (access)
             {
-            case queue_sync::none:
+            case queue_access::read:
+                switch (Sync)
+                {
+                case queue_sync::none:
+                    head = h;
+                    break;
+
+                case queue_sync::read_irq:
+                    volatile_store(&head, h);
+                    break;
+
+                case queue_sync::write_irq:
+                case queue_sync::thread:
+                    head_atomic().store(h, std::memory_order_release);
+                }
+                break;
+
+            case queue_access::unsynchronized:
                 head = h;
                 break;
 
-            case queue_sync::read_irq:
-                volatile_store(&head, h);
-                break;
-
-            case queue_sync::write_irq:
-            case queue_sync::thread:
-                head_atomic().store(h, std::memory_order_release);
+            default:
+                __builtin_unreachable();
             }
             assume(head == h);
         }
 
-        constexpr void store_tail(std::size_t t) noexcept
+        constexpr void store_tail(std::size_t t, queue_access access = queue_access::write) noexcept
         {
-            switch (Sync)
+            switch (access)
             {
-            case queue_sync::none:
+            case queue_access::write:
+                switch (Sync)
+                {
+                case queue_sync::none:
+                    tail = t;
+                    break;
+
+                case queue_sync::write_irq:
+                    volatile_store(&tail, t);
+                    break;
+
+                case queue_sync::read_irq:
+                case queue_sync::thread:
+                    tail_atomic().store(t, std::memory_order_release);
+                }
+                break;
+
+            case queue_access::unsynchronized:
                 tail = t;
                 break;
 
-            case queue_sync::write_irq:
-                volatile_store(&tail, t);
-                break;
-
-            case queue_sync::read_irq:
-            case queue_sync::thread:
-                tail_atomic().store(t, std::memory_order_release);
+            default:
+                __builtin_unreachable();
             }
             assume(tail == t);
         }
@@ -335,5 +362,90 @@ namespace jw::detail
 
     private:
         std::array<std::aligned_storage_t<sizeof(T), alignof(T)>, N> storage;
+    };
+
+    template<typename T, queue_sync Sync, typename Alloc>
+    struct circular_queue_dynamic_storage_base :
+        circular_queue_storage_base<Sync>,
+        circular_queue_utilities<circular_queue_dynamic_storage_base<T, Sync, Alloc>>
+    {
+    protected:
+        using utils = circular_queue_utilities<circular_queue_dynamic_storage_base<T, Sync, Alloc>>;
+        friend utils;
+
+        using allocator_traits = std::allocator_traits<Alloc>;
+        using allocator_type = allocator_traits::allocator_type;
+        using value_type = allocator_traits::value_type;
+        using pointer = allocator_traits::pointer;
+        using const_pointer = allocator_traits::const_pointer;
+        using size_type = allocator_traits::size_type;
+        using difference_type = allocator_traits::difference_type;
+
+        circular_queue_dynamic_storage_base() = delete;
+
+        circular_queue_dynamic_storage_base(size_type size, const allocator_type& a)
+            : alloc { a }
+            , mask { std::bit_ceil(size) - 1 }
+            , ptr { allocator_traits::allocate(alloc, allocated_size()) }
+        { }
+
+        template<queue_sync S2>
+        circular_queue_dynamic_storage_base(circular_queue_dynamic_storage_base<T, S2, Alloc>&& other)
+            : alloc { std::move(other.alloc) }
+            , mask { other.mask }
+            , ptr { other.ptr }
+        {
+            constexpr auto unsync = queue_access::unsynchronized;
+            other.mask = -1;
+            other.ptr = nullptr;
+            this->store_head(other.load_head(unsync), unsync);
+            this->store_tail(other.load_tail(unsync), unsync);
+            other.store_head(0, unsync);
+            other.store_tail(0, unsync);
+        }
+
+        template<queue_sync S2>
+        circular_queue_dynamic_storage_base& operator=(circular_queue_dynamic_storage_base<T, S2, Alloc>&& other)
+            requires (allocator_traits::propagate_on_container_move_assignment::value)
+        {
+            constexpr auto unsync = queue_access::unsynchronized;
+            if (ptr)
+            {
+                const auto h = this->load_head(unsync);
+                const auto t = this->load_tail(unsync);
+                this->destroy_n(h, this->distance(h, t));
+            }
+            this->~circular_queue_dynamic_storage_base();
+            return *new (this) circular_queue_dynamic_storage_base { std::move(other) };
+        }
+
+        ~circular_queue_dynamic_storage_base()
+        {
+            if (ptr) allocator_traits::deallocate(alloc, ptr, allocated_size());
+        }
+
+        size_type allocated_size() const noexcept { return mask + 1; }
+        size_type wrap(size_type i) const noexcept { return i & mask; }
+
+        template<typename... A>
+        void do_construct(size_type p, A&&... args)
+            noexcept (noexcept(allocator_traits::construct(alloc, get(p), std::forward<A>(args)...)))
+        {
+            allocator_traits::construct(alloc, get(p), std::forward<A>(args)...);
+        }
+
+        void do_destroy(size_type p, size_type n) noexcept
+        {
+            for (unsigned i = 0; i < n; ++i)
+                allocator_traits::destroy(alloc, get(p));
+        }
+
+        pointer get(size_type i) noexcept { return ptr + i; }
+        const_pointer get(size_type i) const noexcept { return ptr + i; }
+
+    private:
+        [[no_unique_address]] allocator_type alloc;
+        size_type mask;
+        pointer ptr;
     };
 }
