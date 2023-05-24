@@ -188,6 +188,14 @@ namespace jw
         return a - b > 0 ? a : b;
     }
 
+    // Exception type thrown on overflow, from push_back() etc.
+    struct circular_queue_overflow : std::length_error
+    {
+        circular_queue_overflow() : length_error { "circular_queue overflow" } { }
+        circular_queue_overflow(const circular_queue_overflow&) noexcept = default;
+        circular_queue_overflow& operator=(const circular_queue_overflow&) noexcept = default;
+    };
+
     // Statically allocated storage backend for circular_queue.
     template<typename T, std::size_t N, queue_sync Sync>
     struct circular_queue_static_storage :
@@ -384,14 +392,14 @@ namespace jw
         // on overflow.
         void push_back(const value_type& value)
         {
-            if (not try_push_back(value)) self()->overflow();
+            if (not try_push_back(value)) throw circular_queue_overflow { };
         }
 
         // Add an element to the end.  No iterators are invalidated.  Throws
         // on overflow.
         void push_back(value_type&& value)
         {
-            if (not try_push_back(std::move(value))) self()->overflow();
+            if (not try_push_back(std::move(value))) throw circular_queue_overflow { };
         }
 
         // Add an element to the end.  No iterators are invalidated.  Throws
@@ -400,7 +408,7 @@ namespace jw
         reference emplace_back(A&&... args)
         {
             const auto ref = try_emplace_back(std::forward<A>(args)...);
-            if (not ref) self()->overflow();
+            if (not ref) throw circular_queue_overflow { };
             return *ref;
         }
 
@@ -442,7 +450,7 @@ namespace jw
         iterator append(I first, S last)
         {
             const auto i = try_append(first, last);
-            if (not i) self()->overflow();
+            if (not i) throw circular_queue_overflow { };
             return *i;
         }
 
@@ -453,7 +461,7 @@ namespace jw
         iterator append(size_type n, const value_type& value)
         {
             const auto i = try_append(n, value);
-            if (not i) self()->overflow();
+            if (not i) throw circular_queue_overflow { };
             return *i;
         }
 
@@ -464,7 +472,7 @@ namespace jw
         iterator append(size_type n)
         {
             const auto i = try_append(n);
-            if (not i) self()->overflow();
+            if (not i) throw circular_queue_overflow { };
             return *i;
         }
 

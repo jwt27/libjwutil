@@ -184,8 +184,6 @@ namespace jw::detail
         auto* self() const noexcept { return static_cast<const Storage*>(this); }
 
     protected:
-        static void overflow() { throw std::length_error { "circular_queue overflow" }; }
-
         // Find relative position (distance) of I from head position H.
         std::size_t distance(std::size_t h, std::size_t i) const noexcept
         {
