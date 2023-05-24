@@ -12,6 +12,11 @@
 
 namespace jw
 {
+    // Synchronization mode for circular_queue.  This container can be made
+    // thread- and interrupt-safe for a single "writer" adding elements to the
+    // back, and a single "reader" consuming elements from the front.
+    // The "interrupt" sync modes are meant for single-CPU systems only, where
+    // either a read or a write will be an inherently atomic operation.
     enum class queue_sync
     {
         // No synchronization.
@@ -32,6 +37,8 @@ namespace jw
 
 namespace jw
 {
+    // Iterator for cirular_queue.  Can be made atomic to synchronize between
+    // threads.
     template<typename Queue, bool Atomic>
     struct circular_queue_iterator
     {
@@ -203,9 +210,9 @@ namespace jw
         circular_queue_static_storage() noexcept = default;
     };
 
-    // Efficient circular FIFO with configurable storage backend.
-    template<typename Storage>
-    struct circular_queue : Storage
+    // Common interface to circular_queue for both reader and writer threads.
+    template<typename Queue, typename Storage, detail::queue_access Access>
+    struct circular_queue_common_interface
     {
         using value_type = Storage::value_type;
         using size_type = Storage::size_type;
@@ -214,28 +221,142 @@ namespace jw
         using const_reference = Storage::const_reference;
         using pointer = Storage::pointer;
         using const_pointer = Storage::const_pointer;
-        using iterator = circular_queue_iterator<circular_queue<Storage>, false>;
-        using const_iterator = circular_queue_iterator<const circular_queue<Storage>, false>;
-        using atomic_iterator = circular_queue_iterator<circular_queue<Storage>, true>;
-        using atomic_const_iterator = circular_queue_iterator<const circular_queue<Storage>, true>;
+        using iterator = circular_queue_iterator<Queue, false>;
+        using const_iterator = circular_queue_iterator<const Queue, false>;
 
-        template<typename... A>
-        circular_queue(A&&... args) : Storage { std::forward<A>(args)... } { }
+        reference       at(size_type i)       { return self()->get(check_pos(i)); }
+        const_reference at(size_type i) const { return self()->get(check_pos(i)); }
 
-        ~circular_queue() noexcept { clear(); }
+        reference       operator[](size_type i)       noexcept { return self()->get(self()->add(self()->load_head(Access), i)); }
+        const_reference operator[](size_type i) const noexcept { return self()->get(self()->add(self()->load_head(Access), i)); }
+
+        reference       front()       noexcept { return *self()->get(self()->load_head(Access)); }
+        const_reference front() const noexcept { return *self()->get(self()->load_head(Access)); }
+        reference       back()        noexcept { return *self()->get(self()->load_tail(Access) - 1); }
+        const_reference back()  const noexcept { return *self()->get(self()->load_tail(Access) - 1); }
+
+        iterator        begin()       noexcept { return { self(), self()->load_head(Access) }; }
+        const_iterator  begin() const noexcept { return { self(), self()->load_head(Access) }; }
+        const_iterator cbegin() const noexcept { return { self(), self()->load_head(Access) }; }
+
+        iterator        end()       noexcept { return { self(), self()->load_tail(Access) }; }
+        const_iterator  end() const noexcept { return { self(), self()->load_tail(Access) }; }
+        const_iterator cend() const noexcept { return { self(), self()->load_tail(Access) }; }
+
+        // Returns the end iterator that is furthest removed from i, while
+        // keeping the range [i, end) contiguous in memory.
+        iterator       contiguous_end(const_iterator i)       noexcept { return { self(), find_contiguous_end(i.position()) }; }
+        const_iterator contiguous_end(const_iterator i) const noexcept { return { self(), find_contiguous_end(i.position()) }; }
+
+        // Check if the queue is empty.
+        bool empty() const noexcept
+        {
+            return self()->load_head(Access) == self()->load_tail(Access);
+        }
+
+        // Return number of elements currently in the queue.
+        size_type size() const noexcept
+        {
+            return self()->distance(self()->load_head(Access), self()->load_tail(Access));
+        }
+
+        // Returns maximum number of elements that the queue can store.  This
+        // is one less than the allocated space, since otherwise it is
+        // impossible to distinguish between a "full" and "empty" state.
+        size_type max_size() const noexcept { return self()->allocated_size() - 1; }
+
+    protected:
+        circular_queue_common_interface() noexcept = default;
+        circular_queue_common_interface(circular_queue_common_interface&&) = delete;
+        circular_queue_common_interface(const circular_queue_common_interface&) = delete;
+        circular_queue_common_interface& operator=(circular_queue_common_interface&&) = delete;
+        circular_queue_common_interface& operator=(const circular_queue_common_interface&) = delete;
+
+    private:
+        auto* self()       noexcept { return static_cast<      Queue*>(this); }
+        auto* self() const noexcept { return static_cast<const Queue*>(this); }
+
+        // Throw if index I is out of bounds.  Return absolute position of I.
+        size_type check_pos(size_type i) const
+        {
+            const auto h = self()->load_head(Access);
+            if (i >= self()->distance(h, self()->load_tail(Access))) throw std::out_of_range { "index past end" };
+            return self()->add(h, i);
+        }
+
+        size_type find_contiguous_end(size_type i) const noexcept
+        {
+            const auto t = self()->load_tail(Access);
+            return i > t ? self()->allocated_size() : t;
+        }
+    };
+
+    // Interface to circular_queue for use by the reader thread.
+    template<typename Queue, typename Storage>
+    struct circular_queue_reader : circular_queue_common_interface<Queue, Storage, detail::queue_access::read>
+    {
+        using common = circular_queue_common_interface<Queue, Storage, detail::queue_access::read>;
+
+        using size_type = common::size_type;
+        using const_iterator = common::const_iterator;
+
+        // Remove the specified number of elements from the beginning.  Only
+        // iterators to the removed elements are invalidated.  No bounds checks
+        // are performed!
+        void pop_front(size_type n = 1) noexcept
+        {
+            const auto h = self()->load_head(access::read);
+            self()->destroy_n(h, n);
+            self()->store_head(self()->add(h, n));
+        }
+
+        // Remove elements from the beginning, so that the given iterator
+        // becomes the new head position.  Only iterators to the removed
+        // elements are invalidated.  No bounds checks are performed!
+        void pop_front_to(const_iterator it) noexcept
+        {
+            return pop_front(it.index());
+        }
+
+        // Remove all elements.
+        void clear() noexcept
+        {
+            return pop_front_to(this->cend());
+        }
+
+    protected:
+        circular_queue_reader() noexcept = default;
+
+    private:
+        using access = detail::queue_access;
+
+        auto* self()       noexcept { return static_cast<      Queue*>(this); }
+        auto* self() const noexcept { return static_cast<const Queue*>(this); }
+    };
+
+    // Interface to circular_queue for use by the writer thread.
+    template<typename Queue, typename Storage>
+    struct circular_queue_writer : circular_queue_common_interface<Queue, Storage, detail::queue_access::write>
+    {
+        using common = circular_queue_common_interface<Queue, Storage, detail::queue_access::write>;
+
+        using value_type = common::value_type;
+        using size_type = common::size_type;
+        using reference = common::reference;
+        using iterator = common::iterator;
 
         // Add an element to the end.  No iterators are invalidated.  Throws
         // on overflow.
         void push_back(const value_type& value)
         {
-            if (not try_push_back(value)) this->overflow();
+            if (not try_push_back(value)) self()->overflow();
         }
 
         // Add an element to the end.  No iterators are invalidated.  Throws
         // on overflow.
         void push_back(value_type&& value)
         {
-            if (not try_push_back(std::move(value))) this->overflow();
+            if (not try_push_back(std::move(value))) self()->overflow();
         }
 
         // Add an element to the end.  No iterators are invalidated.  Throws
@@ -244,7 +365,7 @@ namespace jw
         reference emplace_back(A&&... args)
         {
             const auto ref = try_emplace_back(std::forward<A>(args)...);
-            if (not ref) this->overflow();
+            if (not ref) self()->overflow();
             return *ref;
         }
 
@@ -252,23 +373,23 @@ namespace jw
         // false on overflow.
         bool try_push_back(const value_type& value)
         {
-            return do_append(1, [&](auto t) { this->construct(t, value); return t; }).has_value();
+            return do_append(1, [&](auto t) { self()->construct(t, value); return t; }).has_value();
         }
 
         // Add an element to the end.  No iterators are invalidated.  Returns
         // false on overflow.
         bool try_push_back(value_type&& value)
         {
-            return do_append(1, [&](auto t) { this->construct(t, std::move(value)); return t; }).has_value();
+            return do_append(1, [&](auto t) { self()->construct(t, std::move(value)); return t; }).has_value();
         }
 
         // Add an element to the end.  No iterators are invalidated.  Returns
         // empty std::optional on overflow.
         template<typename... A>
         std::optional<std::reference_wrapper<value_type>> try_emplace_back(A&&... args)
-            noexcept (noexcept(this->construct(0u, std::forward<A>(args)...)))
+            noexcept (noexcept(self()->construct(0u, std::forward<A>(args)...)))
         {
-            return do_append(1, [&](auto t) { this->construct(t, std::forward<A>(args)...); return std::ref(*this->get(t)); });
+            return do_append(1, [&](auto t) { self()->construct(t, std::forward<A>(args)...); return std::ref(*self()->get(t)); });
         }
 
         // Add multiple elements to the end and return an iterator to the
@@ -286,7 +407,7 @@ namespace jw
         iterator append(I first, S last)
         {
             const auto i = try_append(first, last);
-            if (not i) this->overflow();
+            if (not i) self()->overflow();
             return *i;
         }
 
@@ -294,10 +415,10 @@ namespace jw
         // iterator to the first inserted element.  Other iterators are not
         // invalidated.  Throws on overflow, and in that case, no elements are
         // added.
-        iterator append(size_type n, const_reference value)
+        iterator append(size_type n, const value_type& value)
         {
             const auto i = try_append(n, value);
-            if (not i) this->overflow();
+            if (not i) self()->overflow();
             return *i;
         }
 
@@ -308,7 +429,7 @@ namespace jw
         iterator append(size_type n)
         {
             const auto i = try_append(n);
-            if (not i) this->overflow();
+            if (not i) self()->overflow();
             return *i;
         }
 
@@ -328,10 +449,10 @@ namespace jw
         // elements are added.
         template<std::forward_iterator I, std::sized_sentinel_for<I> S>
         std::optional<iterator> try_append(I first, S last)
-            noexcept (noexcept(this->copy_n(0u, 0u, first)))
+            noexcept (noexcept(self()->copy_n(0u, 0u, first)))
         {
             const auto n = last - first;
-            return do_append(n, [&](auto t) { this->copy_n(t, n, first); return iterator { this, t }; });
+            return do_append(n, [&](auto t) { self()->copy_n(t, n, first); return iterator { self(), t }; });
         }
 
         // Add multiple copy-constructed elements to the end and return an
@@ -339,9 +460,9 @@ namespace jw
         // invalidated.  Returns an empty std::optional on overflow, and in
         // that case, no elements are added.
         std::optional<iterator> try_append(size_type n, const value_type& value)
-            noexcept (noexcept(this->fill_n(0u, n, value)))
+            noexcept (noexcept(self()->fill_n(0u, n, value)))
         {
-            return do_append(n, [&](auto t) { this->fill_n(t, n, value); return iterator { this, t }; });
+            return do_append(n, [&](auto t) { self()->fill_n(t, n, value); return iterator { self(), t }; });
         }
 
         // Add multiple default-constructed elements to the end and return an
@@ -349,9 +470,9 @@ namespace jw
         // invalidated.  Returns an empty std::optional on overflow, and in
         // that case, no elements are added.
         std::optional<iterator> try_append(size_type n)
-            noexcept (noexcept(this->default_construct_n(0u, n)))
+            noexcept (noexcept(self()->default_construct_n(0u, n)))
         {
-            return do_append(n, [&](auto t) { this->default_construct_n(t, n); return iterator { this, t }; });
+            return do_append(n, [&](auto t) { self()->default_construct_n(t, n); return iterator { self(), t }; });
         }
 
         // Fill the queue with copy-constructed elements and return an
@@ -360,7 +481,7 @@ namespace jw
         iterator fill(const value_type& value)
             noexcept (noexcept(try_append(0u, value)))
         {
-            return *try_append(max_size() - size_for_write(), value);
+            return *try_append(this->max_size() - this->size(), value);
         }
 
         // Fill the queue with default-constructed elements and return an
@@ -369,121 +490,74 @@ namespace jw
         iterator fill()
             noexcept (noexcept(try_append(0u, 0u)))
         {
-            return *try_append(max_size() - size_for_write());
+            return *try_append(this->max_size() - this->size());
         }
 
-        // Remove the specified number of elements from the beginning.  Only
-        // iterators to the removed elements are invalidated.  No bounds checks
-        // are performed!
-        void pop_front(size_type n = 1) noexcept
-        {
-            const auto h = this->load_head(access::read);
-            this->destroy_n(h, n);
-            this->store_head(this->add(h, n));
-        }
-
-        // Remove elements from the beginning, so that the given iterator
-        // becomes the new head position.  Only iterators to the removed
-        // elements are invalidated.  No bounds checks are performed!
-        void pop_front_to(const_iterator it) noexcept
-        {
-            return pop_front(it.index());
-        }
-
-        // Remove all elements.
-        void clear() noexcept
-        {
-            return pop_front_to(cend());
-        }
-
-        reference at(size_type i)
-        {
-            return this->get(check_pos(i));
-        }
-
-        const_reference at(size_type i) const
-        {
-            return this->get(check_pos(i));
-        }
-
-        reference       operator[](size_type i)       noexcept { return this->get(this->add(this->load_head(access::read), i)); }
-        const_reference operator[](size_type i) const noexcept { return this->get(this->add(this->load_head(access::read), i)); }
-
-        reference       front()       noexcept { return *this->get(this->load_head(access::read)); }
-        const_reference front() const noexcept { return *this->get(this->load_head(access::read)); }
-        reference       back()        noexcept { return *this->get(this->load_tail(access::read) - 1); }
-        const_reference back()  const noexcept { return *this->get(this->load_tail(access::read) - 1); }
-
-        iterator        begin()       noexcept { return { this, this->load_head(access::read) }; }
-        const_iterator  begin() const noexcept { return { this, this->load_head(access::read) }; }
-        const_iterator cbegin() const noexcept { return { this, this->load_head(access::read) }; }
-
-        iterator        end()       noexcept { return { this, this->load_tail(access::read) }; }
-        const_iterator  end() const noexcept { return { this, this->load_tail(access::read) }; }
-        const_iterator cend() const noexcept { return { this, this->load_tail(access::read) }; }
-
-        // Returns the end iterator that is furthest removed from i, while
-        // keeping the range [i, end) contiguous in memory.
-        iterator       contiguous_end(const_iterator i)       noexcept { return { this, find_contiguous_end(i.position()) }; }
-        const_iterator contiguous_end(const_iterator i) const noexcept { return { this, find_contiguous_end(i.position()) }; }
-
-        // Return number of elements currently in the queue.  This is meant
-        // for use by the writer thread only.
-        size_type size_for_write() const noexcept
-        {
-            return this->distance(this->load_head(access::write), this->load_tail(access::write));
-        }
-
-        // Return number of elements currently in the queue.  This is meant
-        // for use by the reader thread only.
-        size_type size_for_read() const noexcept
-        {
-            return this->distance(this->load_head(access::read), this->load_tail(access::read));
-        }
-
-        // Returns maximum number of elements that the queue can store.  This
-        // is one less than the allocated space, since otherwise it is
-        // impossible to distinguish between a "full" and "empty" state.
-        size_type max_size() const noexcept { return Storage::allocated_size() - 1; }
-
-        // Check if the queue is empty.  This is meant for use by the reader
-        // thread only.
-        bool empty() const noexcept
-        {
-            return this->load_head(access::read) == this->load_tail(access::read);
-        }
-
-        static_assert(std::random_access_iterator<iterator>);
+    protected:
+        circular_queue_writer() noexcept = default;
 
     private:
-        template<typename, bool> friend struct circular_queue_iterator;
         using access = detail::queue_access;
+
+        auto* self()       noexcept { return static_cast<      Queue*>(this); }
+        auto* self() const noexcept { return static_cast<const Queue*>(this); }
 
         // Invoke FUNC and bump tail pointer by N, if there is enough free
         // space.
         template<typename F>
         std::optional<std::invoke_result_t<F, size_type>> do_append(size_type n, F&& func) noexcept(noexcept(std::declval<F>()(std::declval<size_type>())))
         {
-            const auto t = this->load_tail(access::write);
-            if (this->distance(this->load_head(access::write), t) + n > max_size()) return std::nullopt;
-            const auto result = std::forward<F>(func)(t);
-            this->store_tail(this->add(t, n));
-            return { result };
+            const auto t = self()->load_tail(access::write);
+            if (self()->distance(self()->load_head(access::write), t) + n > this->max_size()) return std::nullopt;
+            auto&& result = std::forward<F>(func)(t);
+            self()->store_tail(self()->add(t, n));
+            return { std::forward<decltype(result)>(result) };
         }
+    };
 
-        // Throw if index I is out of bounds.  Return absolute position of I.
-        size_type check_pos(size_type i) const
-        {
-            const auto h = this->load_head(access::read);
-            if (i >= this->distance(h, this->load_tail(access::read))) throw std::out_of_range { "index past end" };
-            return this->add(h, i);
-        }
+    // Efficient circular FIFO with configurable storage backend.
+    template<typename Storage>
+    struct circular_queue :
+        Storage,
+        private circular_queue_reader<circular_queue<Storage>, Storage>,
+        private circular_queue_writer<circular_queue<Storage>, Storage>
+    {
+        using value_type = Storage::value_type;
+        using size_type = Storage::size_type;
+        using difference_type = Storage::difference_type;
+        using reference = Storage::reference;
+        using const_reference = Storage::const_reference;
+        using pointer = Storage::pointer;
+        using const_pointer = Storage::const_pointer;
+        using iterator = circular_queue_iterator<circular_queue<Storage>, false>;
+        using const_iterator = circular_queue_iterator<const circular_queue<Storage>, false>;
+        using atomic_iterator = circular_queue_iterator<circular_queue<Storage>, true>;
+        using atomic_const_iterator = circular_queue_iterator<const circular_queue<Storage>, true>;
 
-        size_type find_contiguous_end(size_type i) const noexcept
-        {
-            const auto t = this->load_tail(access::read);
-            return i > t ? max_size() + 1 : t;
-        }
+        using reader = circular_queue_reader<circular_queue<Storage>, Storage>;
+        using writer = circular_queue_writer<circular_queue<Storage>, Storage>;
+
+        static_assert(std::random_access_iterator<iterator>);
+
+        template<typename... A>
+        circular_queue(A&&... args) : Storage { std::forward<A>(args)... } { }
+
+        template<typename... A>
+        circular_queue& operator=(A&&... args) { Storage::operator=(std::forward<A>(args)...); return *this; }
+
+        ~circular_queue() noexcept { read()->clear(); }
+
+        reader* read() noexcept { return this; }
+        const reader* read() const noexcept { return this; }
+
+        writer* write() noexcept { return this; }
+        const writer* write() const noexcept { return this; }
+
+    private:
+        template<typename, bool> friend struct circular_queue_iterator;
+        template<typename, typename, detail::queue_access> friend struct circular_queue_common_interface;
+        friend reader;
+        friend writer;
     };
 
     template<typename T, std::size_t N, queue_sync Sync = queue_sync::none>
