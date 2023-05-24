@@ -422,6 +422,34 @@ namespace jw::detail
             if (ptr) allocator_traits::deallocate(alloc, ptr, allocated_size());
         }
 
+        void resize(size_type size)
+        {
+            size = std::bit_ceil(size);
+            if (size <= allocated_size()) return;
+            constexpr auto unsync = queue_access::unsynchronized;
+            const auto h = this->load_head(unsync);
+            const auto t = this->load_tail(unsync);
+            const auto n = this->distance(h, t);
+            const auto old_size = allocated_size();
+            const pointer p = allocator_traits::allocate(alloc, n);
+            try
+            {
+                for (unsigned i = 0; i < n; ++i)
+                    allocator_traits::construct(alloc, p + h + i, std::move(*get(this->add(h, i))));
+                for (unsigned i = 0; i < n; ++i)
+                    allocator_traits::destroy(alloc, get(this->add(h, i)));
+                mask = size - 1;
+                ptr = p;
+                this->store_tail(h + n, unsync);
+            }
+            catch (...)
+            {
+                allocator_traits::deallocate(alloc, p, size);
+                throw;
+            }
+            allocator_traits::deallocate(alloc, ptr, old_size);
+        }
+
         size_type allocated_size() const noexcept { return mask + 1; }
         size_type wrap(size_type i) const noexcept { return i & mask; }
 

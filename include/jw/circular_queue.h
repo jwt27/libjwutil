@@ -233,6 +233,10 @@ namespace jw
         using pointer = base::pointer;
         using const_pointer = base::const_pointer;
 
+        // Resize allocated storage to at least the specified size.  No
+        // iterators are invalidated.  Not thread-safe!
+        void resize(size_type new_size) { base::resize(new_size); }
+
     protected:
         template<typename, queue_sync, typename> friend struct circular_queue_dynamic_storage;
 
