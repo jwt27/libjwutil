@@ -233,7 +233,7 @@ namespace jw
         using pointer = base::pointer;
         using const_pointer = base::const_pointer;
 
-        // Resize allocated storage to at least the specified size.  No
+        // Resize allocated storage to at least the specified size.  All
         // iterators are invalidated.  Not thread-safe!
         void resize(size_type new_size) { base::resize(new_size); }
 
