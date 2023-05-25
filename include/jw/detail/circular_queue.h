@@ -175,9 +175,9 @@ namespace jw::detail
     {
         struct dummy : Storage
         {
-            static constexpr bool has_default_construct = requires (dummy a) { a.do_default_construct(std::declval<std::size_t>(), std::declval<std::size_t>()); };
-            template<typename T> static constexpr bool has_copy = requires (dummy a) { a.do_copy(std::declval<std::size_t>(), std::declval<std::size_t>(), std::declval<T>()); };
-            template<typename T> static constexpr bool has_fill = requires (dummy a) { a.do_fill(std::declval<std::size_t>(), std::declval<std::size_t>(), std::declval<T>()); };
+            static constexpr bool can_default_construct = requires (dummy a) { a.do_default_construct(std::declval<std::size_t>(), std::declval<std::size_t>()); };
+            template<typename T> static constexpr bool can_copy = requires (dummy a) { a.do_copy(std::declval<std::size_t>(), std::declval<std::size_t>(), std::declval<T>()); };
+            template<typename T> static constexpr bool can_fill = requires (dummy a) { a.do_fill(std::declval<std::size_t>(), std::declval<std::size_t>(), std::declval<T>()); };
         };
 
         auto* self()       noexcept { return static_cast<Storage*>(this); }
@@ -216,13 +216,14 @@ namespace jw::detail
         }
 
         void default_construct_n(std::size_t p, std::size_t n) noexcept
-            requires (noexcept(construct(0u)))
+            requires (not dummy::can_default_construct and noexcept(construct(0u)))
         {
             for (unsigned i = 0; i < n; ++i)
                 construct(add(p, i));
         }
 
         void default_construct_n(std::size_t p, std::size_t n)
+            requires (not dummy::can_default_construct and not noexcept(construct(0u)))
         {
             for (unsigned i = 0; i < n; ++i)
             {
@@ -246,7 +247,7 @@ namespace jw::detail
 
         template<std::forward_iterator I>
         void copy_n(std::size_t p, std::size_t n, I it) noexcept
-            requires (noexcept(construct(0u, *it)))
+            requires (not dummy::template can_copy<I> and noexcept(construct(0u, *it)))
         {
             for (unsigned i = 0; i < n; ++i, ++it)
                 construct(add(p, i), *it);
@@ -254,6 +255,7 @@ namespace jw::detail
 
         template<std::forward_iterator I>
         void copy_n(std::size_t p, std::size_t n, I it)
+            requires (not dummy::template can_copy<I> and not noexcept(construct(0u, *it)))
         {
             for (unsigned i = 0; i < n; ++i, ++it)
             {
@@ -277,7 +279,7 @@ namespace jw::detail
 
         template<typename T>
         void fill_n(std::size_t p, std::size_t n, const T& value) noexcept
-            requires (noexcept(construct(0u, value)))
+            requires (not dummy::template can_fill<const T&> and noexcept(construct(0u, value)))
         {
             for (unsigned i = 0; i < n; ++i)
                 construct(add(p, i), value);
@@ -285,6 +287,7 @@ namespace jw::detail
 
         template<typename T>
         void fill_n(std::size_t p, std::size_t n, const T& value)
+            requires (not dummy::template can_fill<const T&> and not noexcept(construct(0u, value)))
         {
             for (unsigned i = 0; i < n; ++i)
             {
@@ -333,7 +336,8 @@ namespace jw::detail
 
         template<std::forward_iterator I>
         void do_copy(std::size_t p, std::size_t n, I it) noexcept
-            requires (std::is_nothrow_constructible_v<T, std::iter_reference_t<I>>)
+            requires (requires (I it, std::iter_difference_t<I> n) { { *(it + n) } -> std::same_as<std::iter_reference_t<I>>; }
+                      and std::is_nothrow_constructible_v<T, std::iter_reference_t<I>>)
         {
             const auto max_n = std::min(n, N - p);
             std::uninitialized_copy_n(std::execution::unseq, it, max_n, get(p));
