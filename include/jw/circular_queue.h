@@ -535,7 +535,7 @@ namespace jw
         // iterator to the first inserted element.  Other iterators are not
         // invalidated.
         iterator fill()
-            noexcept (noexcept(try_append(0u, 0u)))
+            noexcept (noexcept(try_append(0u)))
         {
             return *try_append(this->max_size() - this->size());
         }
