@@ -54,6 +54,9 @@ namespace jw
 
         circular_queue_iterator(container_type* queue, size_type pos) noexcept : c { queue }, i { pos } { }
 
+        circular_queue_iterator(const circular_queue_iterator& other) noexcept : c { other.c }, i { other.load() } { }
+        circular_queue_iterator& operator=(const circular_queue_iterator& other) noexcept { c = other.c; store(other.load()); }
+
         template<typename Queue2, bool Atomic2> requires (std::is_const_v<Queue> or not std::is_const_v<Queue2>)
         circular_queue_iterator(const circular_queue_iterator<Queue2, Atomic2>& other) noexcept : c { other.c }, i { other.load() } { }
 
