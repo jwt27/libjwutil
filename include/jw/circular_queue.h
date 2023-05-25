@@ -42,12 +42,15 @@ namespace jw
     template<typename Queue, bool Atomic>
     struct circular_queue_iterator
     {
+        static constexpr bool is_const = std::is_const_v<Queue>;
+        static constexpr bool is_atomic = Atomic;
+
         using container_type = Queue;
         using size_type = Queue::size_type;
         using difference_type = Queue::difference_type;
-        using value_type = std::conditional_t<std::is_const_v<Queue>, const typename Queue::value_type, typename Queue::value_type>;
-        using pointer = value_type*;
-        using reference = value_type&;
+        using value_type = std::conditional_t<is_const, const typename Queue::value_type, typename Queue::value_type>;
+        using pointer = std::conditional_t<is_const, typename Queue::const_pointer, typename Queue::pointer>;
+        using reference = std::conditional_t<is_const, typename Queue::const_reference, typename Queue::reference>;
         using iterator_category = std::random_access_iterator_tag;
 
         circular_queue_iterator() noexcept = default;
