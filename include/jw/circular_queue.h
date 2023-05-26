@@ -306,6 +306,11 @@ namespace jw
         iterator       contiguous_end(const_iterator i)       noexcept { return { self(), find_contiguous_end(i.position()) }; }
         const_iterator contiguous_end(const_iterator i) const noexcept { return { self(), find_contiguous_end(i.position()) }; }
 
+        // Given a pointer to an element in this queue, produce an iterator
+        // that points to the same element.
+        iterator       iterator_from_pointer(const_pointer p)       noexcept { return { self(), static_cast<size_type>(p - self()->get(0)) }; }
+        const_iterator iterator_from_pointer(const_pointer p) const noexcept { return { self(), static_cast<size_type>(p - self()->get(0)) }; }
+
         // Check if the queue is empty.
         bool empty() const noexcept
         {
