@@ -296,6 +296,11 @@ namespace jw
         const_iterator  end() const noexcept { return { self(), self()->load_tail(Access) }; }
         const_iterator cend() const noexcept { return { self(), self()->load_tail(Access) }; }
 
+        // Returns the begin iterator that is furthest removed from i, while
+        // keeping the range [begin, i) contiguous in memory.
+        iterator       contiguous_begin(const_iterator i)       noexcept { return { self(), find_contiguous_begin(i.position()) }; }
+        const_iterator contiguous_begin(const_iterator i) const noexcept { return { self(), find_contiguous_begin(i.position()) }; }
+
         // Returns the end iterator that is furthest removed from i, while
         // keeping the range [i, end) contiguous in memory.
         iterator       contiguous_end(const_iterator i)       noexcept { return { self(), find_contiguous_end(i.position()) }; }
@@ -335,6 +340,12 @@ namespace jw
             const auto h = self()->load_head(Access);
             if (i >= self()->distance(h, self()->load_tail(Access))) throw std::out_of_range { "index past end" };
             return self()->add(h, i);
+        }
+
+        size_type find_contiguous_begin(size_type i) const noexcept
+        {
+            const auto h = self()->load_head(Access);
+            return i > h ? h : 0;
         }
 
         size_type find_contiguous_end(size_type i) const noexcept
