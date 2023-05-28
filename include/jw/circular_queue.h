@@ -129,6 +129,43 @@ namespace jw
             return std::partial_ordering::equivalent;
         }
 
+        // Given an iterator i that lies between min and max, add an offset to
+        // it, without going past either min or max.  Assumes all iterators
+        // are from the same container.
+        friend auto clamp_add(const circular_queue_iterator& i, difference_type delta,
+                              const circular_queue_iterator<const Queue, false>& min,
+                              const circular_queue_iterator<const Queue, false>& max) noexcept
+        {
+            using I = circular_queue_iterator<Queue, false>;
+            const auto pos = i.position();
+            auto* const queue = i.container();
+            assume(min.container() == queue);
+            assume(max.container() == queue);
+            if (delta == 0) return I { i };
+            if (delta > 0)  return I { queue, pos + std::min(static_cast<size_type>( delta), i.distance(pos, max.position())) };
+            else            return I { queue, pos - std::min(static_cast<size_type>(-delta), i.distance(min.position(), pos)) };
+        }
+
+        // Given an iterator i that is ahead of this iterator, find the
+        // distance between them.  That is: b == a + a.distance_to(b).
+        // Assumes both iterators are from the same container.  Slightly
+        // faster than subtraction.
+        size_type distance_to(const circular_queue_iterator<const Queue, false>& i) const noexcept
+        {
+            assume(container() == i.container());
+            return distance(position(), i.position());
+        }
+
+        // Given an iterator i that comes before this iterator, find the
+        // distance between them.  That is: b == a - a.distance_from(b).
+        // Assumes both iterators are from the same container.  Slightly
+        // faster than subtraction.
+        size_type distance_from(const circular_queue_iterator<const Queue, false>& other) const noexcept
+        {
+            assume(container() == i.container());
+            return distance(i.position(), position());
+        }
+
         size_type position() const noexcept { return c->wrap(load()); }
         size_type index() const noexcept { return c->distance(c->load_head(), position()); }
         container_type* container() const noexcept { return c; }
@@ -142,6 +179,11 @@ namespace jw
         }
 
     private:
+        size_type distance(size_type h, size_type i) const noexcept
+        {
+            return c->distance(h, i);
+        }
+
         size_type load() const noexcept
         {
             if constexpr (Atomic) return i.load(std::memory_order_acquire);
