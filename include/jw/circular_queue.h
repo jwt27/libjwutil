@@ -39,6 +39,9 @@ namespace jw
 {
     // Iterator for circular_queue.  Can be made atomic to synchronize between
     // threads.
+    // As an optimization, most functions and operators in this class will
+    // assume that both operands are from the same container.  Only
+    // operator <=> doesn't make this assumption.
     template<typename Queue, bool Atomic>
     struct circular_queue_iterator
     {
@@ -96,31 +99,24 @@ namespace jw
             return { it.c, it.load() + n };
         }
 
-        // Assumes both iterators are from the same container, since it
-        // doesn't make any sense to compare them otherwise.  If you do need
-        // to check if two iterators are from the same container, use
-        // operator <=>.
-        template<typename Q2, bool A2> requires (std::is_same_v<std::remove_const_t<Queue>, std::remove_const_t<Q2>>)
-        difference_type operator-(const circular_queue_iterator<Q2, A2>& b) const noexcept
+        difference_type operator-(const circular_queue_iterator<const Queue, false>& b) const noexcept
         {
             const auto h = c->load_head();
-            return c->distance(h, position()) - c->distance(h, b.position());
+            assume(container() == b.container());
+            return distance(h, position()) - distance(h, b.position());
         }
 
-        template<typename Q2, bool A2> requires (std::is_same_v<std::remove_const_t<Queue>, std::remove_const_t<Q2>>)
-        bool operator==(const circular_queue_iterator<Q2, A2>& b) const noexcept
+        bool operator==(const circular_queue_iterator<const Queue, false>& b) const noexcept
         {
-            return &**this == &*b;
+            return c->wrap(load() xor b.load()) == 0;
         }
 
-        template<typename Q2, bool A2> requires (std::is_same_v<std::remove_const_t<Queue>, std::remove_const_t<Q2>>)
-        bool operator!=(const circular_queue_iterator<Q2, A2>& b) const noexcept
+        bool operator!=(const circular_queue_iterator<const Queue, false>& b) const noexcept
         {
             return not (*this == b);
         }
 
-        template<typename Q2, bool A2> requires (std::is_same_v<std::remove_const_t<Queue>, std::remove_const_t<Q2>>)
-        std::partial_ordering operator<=>(const circular_queue_iterator<Q2, A2>& b) const noexcept
+        std::partial_ordering operator<=>(const circular_queue_iterator<const Queue, false>& b) const noexcept
         {
             if (container() != b.container()) return std::partial_ordering::unordered;
             const auto x = *this - b;
@@ -167,7 +163,7 @@ namespace jw
         }
 
         size_type position() const noexcept { return c->wrap(load()); }
-        size_type index() const noexcept { return c->distance(c->load_head(), position()); }
+        size_type index() const noexcept { return distance(c->load_head(), position()); }
         container_type* container() const noexcept { return c; }
         circular_queue_iterator<container_type, true> atomic() const noexcept { return { c, load() }; }
 
@@ -230,6 +226,7 @@ namespace jw
     {
         using Q = std::conditional_t<std::is_const_v<Qa> and std::is_const_v<Qb>, const Qa, std::remove_const_t<Qa>>;
         using I = circular_queue_iterator<Q, false>;
+        assume(ia.container() == ib.container());
         Q* q = [&] { if constexpr (std::is_const_v<Qa>) return ib.container(); else return ia.container(); }();
         const I a { q, ia.position() }, b { q, ib.position() };
         return a - b < 0 ? a : b;
@@ -242,6 +239,7 @@ namespace jw
     {
         using Q = std::conditional_t<std::is_const_v<Qa> and std::is_const_v<Qb>, const Qa, std::remove_const_t<Qa>>;
         using I = circular_queue_iterator<Q, false>;
+        assume(ia.container() == ib.container());
         Q* q = [&] { if constexpr (std::is_const_v<Qa>) return ib.container(); else return ia.container(); }();
         const I a { q, ia.position() }, b { q, ib.position() };
         return a - b > 0 ? a : b;
