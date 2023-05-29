@@ -364,15 +364,15 @@ namespace jw
 
         // Check if the queue is empty.
         bool empty() const noexcept
-        {
-            return self()->load_head(Access) == self()->load_tail(Access);
-        }
+        { return self()->load_head(Access) == self()->load_tail(Access); }
+
+        // Check if the queue is full.
+        bool full() const noexcept
+        { return self()->load_head(Access) == self()->add(self()->load_tail(Access), 1); }
 
         // Return number of elements currently in the queue.
         size_type size() const noexcept
-        {
-            return self()->distance(self()->load_head(Access), self()->load_tail(Access));
-        }
+        { return self()->distance(self()->load_head(Access), self()->load_tail(Access)); }
 
         // Returns maximum number of elements that the queue can store.  This
         // is one less than the allocated space, since otherwise it is
