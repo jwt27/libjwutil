@@ -347,18 +347,22 @@ namespace jw
         const_iterator  end() const noexcept { return { self(), self()->load_tail(Access) }; }
         const_iterator cend() const noexcept { return { self(), self()->load_tail(Access) }; }
 
-        // Returns the begin iterator that is furthest removed from i, while
-        // keeping the range [begin, i) contiguous in memory.
-        iterator       contiguous_begin(const_iterator i)       noexcept { return { self(), find_contiguous_begin(i.position()) }; }
-        const_iterator contiguous_begin(const_iterator i) const noexcept { return { self(), find_contiguous_begin(i.position()) }; }
+        // Given a valid iterator to an element in this queue, produce the
+        // pointer that is logically closest to begin(), while keeping the
+        // closed range [ptr, &*i] contiguous in memory.
+        pointer       contiguous_begin(const_iterator i)       noexcept { return self()->get(find_contiguous_begin(i.position())); }
+        const_pointer contiguous_begin(const_iterator i) const noexcept { return self()->get(find_contiguous_begin(i.position())); }
 
-        // Returns the end iterator that is furthest removed from i, while
-        // keeping the range [i, end) contiguous in memory.
-        iterator       contiguous_end(const_iterator i)       noexcept { return { self(), find_contiguous_end(i.position()) }; }
-        const_iterator contiguous_end(const_iterator i) const noexcept { return { self(), find_contiguous_end(i.position()) }; }
+        // Returns the pointer that is logically closest to end(), while
+        // keeping the range [&*i, ptr) contiguous in memory.
+        pointer       contiguous_end(const_iterator i)       noexcept { return self()->get(find_contiguous_end(i.position())); }
+        const_pointer contiguous_end(const_iterator i) const noexcept { return self()->get(find_contiguous_end(i.position())); }
 
         // Given a pointer to an element in this queue, produce an iterator
-        // that points to the same element.
+        // that points to the same element.  Given a pointer that is one
+        // position past the end of the allocated storage, such as one
+        // previously returned from contiguous_end(), this returns an iterator
+        // that points to the beginning of the next contiguous memory range.
         iterator       iterator_from_pointer(const_pointer p)       noexcept { return { self(), static_cast<size_type>(p - self()->get(0)) }; }
         const_iterator iterator_from_pointer(const_pointer p) const noexcept { return { self(), static_cast<size_type>(p - self()->get(0)) }; }
 
