@@ -629,10 +629,12 @@ namespace jw
         // Invoke FUNC and bump tail pointer by N, if there is enough free
         // space.
         template<typename F>
-        std::optional<std::invoke_result_t<F, size_type>> do_append(size_type n, F&& func) noexcept(noexcept(std::declval<F>()(std::declval<size_type>())))
+        std::optional<std::invoke_result_t<F, size_type>> do_append(size_type n, F&& func)
+            noexcept (noexcept(std::declval<F>()(std::declval<size_type>())))
         {
             const auto t = self()->load_tail(access::write);
-            if (self()->distance(self()->load_head(access::write), t) + n > this->max_size()) return std::nullopt;
+            if (self()->distance(self()->load_head(access::write), t) + n > this->max_size()) [[unlikely]]
+                return std::nullopt;
             auto&& result = std::forward<F>(func)(t);
             self()->store_tail(self()->add(t, n));
             return { std::forward<decltype(result)>(result) };
