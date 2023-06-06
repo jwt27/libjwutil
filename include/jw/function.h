@@ -1,4 +1,5 @@
 /* * * * * * * * * * * * * * libjwutil * * * * * * * * * * * * * */
+/* Copyright (C) 2023 J.W. Jagersma, see COPYING.txt for details */
 /* Copyright (C) 2022 J.W. Jagersma, see COPYING.txt for details */
 /* Copyright (C) 2021 J.W. Jagersma, see COPYING.txt for details */
 
@@ -176,11 +177,18 @@ namespace jw
         template<typename... E>
         constexpr callable_tuple(E&&... elements) : tuple { std::forward<E>(elements)... } { }
 
-        decltype(auto) operator()() { return call(std::make_index_sequence<std::tuple_size_v<T>> { }); }
+        template<typename... A>
+        decltype(auto) operator()(A&&... args)
+        {
+            return call(std::make_index_sequence<std::tuple_size_v<T>> { }, std::forward<A>(args)...);
+        }
 
     private:
-        template<std::size_t... I>
-        decltype(auto) call(std::index_sequence<I...>) { return std::invoke(std::get<I>(std::move(tuple))...); }
+        template<std::size_t... I, typename... A>
+        decltype(auto) call(std::index_sequence<I...>, A&&... args)
+        {
+            return std::invoke(std::get<I>(std::move(tuple))..., std::forward<A>(args)...);
+        }
 
         T tuple;
     };
