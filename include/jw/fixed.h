@@ -51,10 +51,10 @@ namespace jw
         static constexpr fixed make(T value) noexcept { return fixed { noshift, value }; }
 
         template<std::floating_point U>
-        constexpr explicit fixed(U v) noexcept : value { static_cast<T>(round(v * (1ULL << F))) } { }
+        constexpr fixed(U v) noexcept : value { static_cast<T>(round(v * (1ULL << F))) } { }
 
         template<std::integral U>
-        constexpr explicit fixed(U v) noexcept : value { static_cast<T>(v) << F } { }
+        constexpr fixed(U v) noexcept : value { static_cast<T>(v) << F } { }
 
         template<same_sign_int<T> U, std::size_t G>
         constexpr fixed(const fixed<U, G>& v) noexcept : fixed { convert(v) } { }
