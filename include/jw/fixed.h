@@ -1,6 +1,5 @@
-/* * * * * * * * * * * * * * libjwutil * * * * * * * * * * * * * */
-/* Copyright (C) 2022 J.W. Jagersma, see COPYING.txt for details */
-/* Copyright (C) 2021 J.W. Jagersma, see COPYING.txt for details */
+/* * * * * * * * * * * * * * * * * * jwutil * * * * * * * * * * * * * * * * * */
+/*    Copyright (C) 2021 - 2023 J.W. Jagersma, see COPYING.txt for details    */
 
 #pragma once
 #include <cstdint>
@@ -49,7 +48,7 @@ namespace jw
 
         T value;
 
-        static fixed make(T value) noexcept { return fixed { noshift, value }; }
+        static constexpr fixed make(T value) noexcept { return fixed { noshift, value }; }
 
         template<std::floating_point U>
         constexpr explicit fixed(U v) noexcept : value { static_cast<T>(round(v * (1ULL << F))) } { }
