@@ -1,5 +1,5 @@
-/* * * * * * * * * * * * * * libjwutil * * * * * * * * * * * * * */
-/* Copyright (C) 2023 J.W. Jagersma, see COPYING.txt for details */
+/* * * * * * * * * * * * * * * * * * jwutil * * * * * * * * * * * * * * * * * */
+/*    Copyright (C) 2023 - 2023 J.W. Jagersma, see COPYING.txt for details    */
 
 #pragma once
 
@@ -8,8 +8,8 @@ namespace jw::detail
     enum class queue_access
     {
         any,
-        read,
-        write,
+        consume,
+        produce,
         unsynchronized
     };
 
@@ -35,25 +35,25 @@ namespace jw::detail
                 case queue_sync::none:
                     return head;
 
-                case queue_sync::write_irq:
-                case queue_sync::read_irq:
+                case queue_sync::producer_irq:
+                case queue_sync::consumer_irq:
                 case queue_sync::thread:
                     return head_atomic().load(std::memory_order_acquire);
                 }
                 __builtin_unreachable();
 
             case queue_access::unsynchronized:
-            case queue_access::read:
+            case queue_access::consume:
                 return head;
 
-            case queue_access::write:
+            case queue_access::produce:
                 switch (Sync)
                 {
                 case queue_sync::none:
-                case queue_sync::write_irq:
+                case queue_sync::producer_irq:
                     return head;
 
-                case queue_sync::read_irq:
+                case queue_sync::consumer_irq:
                 case queue_sync::thread:
                     return head_atomic().load(std::memory_order_acquire);
                 }
@@ -71,49 +71,49 @@ namespace jw::detail
                 case queue_sync::none:
                     return tail;
 
-                case queue_sync::read_irq:
-                case queue_sync::write_irq:
+                case queue_sync::consumer_irq:
+                case queue_sync::producer_irq:
                 case queue_sync::thread:
                     return tail_atomic().load(std::memory_order_acquire);
                 }
                 __builtin_unreachable();
 
-            case queue_access::read:
+            case queue_access::consume:
                 switch (Sync)
                 {
                 case queue_sync::none:
-                case queue_sync::read_irq:
+                case queue_sync::consumer_irq:
                     return tail;
 
-                case queue_sync::write_irq:
+                case queue_sync::producer_irq:
                 case queue_sync::thread:
                     return tail_atomic().load(std::memory_order_acquire);
                 }
                 __builtin_unreachable();
 
             case queue_access::unsynchronized:
-            case queue_access::write:
+            case queue_access::produce:
                 return tail;
             }
             __builtin_unreachable();
         }
 
-        constexpr void store_head(std::size_t h, queue_access access = queue_access::read) noexcept
+        constexpr void store_head(std::size_t h, queue_access access = queue_access::consume) noexcept
         {
             switch (access)
             {
-            case queue_access::read:
+            case queue_access::consume:
                 switch (Sync)
                 {
                 case queue_sync::none:
                     head = h;
                     break;
 
-                case queue_sync::read_irq:
+                case queue_sync::consumer_irq:
                     volatile_store(&head, h);
                     break;
 
-                case queue_sync::write_irq:
+                case queue_sync::producer_irq:
                 case queue_sync::thread:
                     head_atomic().store(h, std::memory_order_release);
                 }
@@ -129,22 +129,22 @@ namespace jw::detail
             assume(head == h);
         }
 
-        constexpr void store_tail(std::size_t t, queue_access access = queue_access::write) noexcept
+        constexpr void store_tail(std::size_t t, queue_access access = queue_access::produce) noexcept
         {
             switch (access)
             {
-            case queue_access::write:
+            case queue_access::produce:
                 switch (Sync)
                 {
                 case queue_sync::none:
                     tail = t;
                     break;
 
-                case queue_sync::write_irq:
+                case queue_sync::producer_irq:
                     volatile_store(&tail, t);
                     break;
 
-                case queue_sync::read_irq:
+                case queue_sync::consumer_irq:
                 case queue_sync::thread:
                     tail_atomic().store(t, std::memory_order_release);
                 }

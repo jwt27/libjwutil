@@ -1,5 +1,5 @@
-/* * * * * * * * * * * * * * libjwutil * * * * * * * * * * * * * */
-/* Copyright (C) 2023 J.W. Jagersma, see COPYING.txt for details */
+/* * * * * * * * * * * * * * * * * * jwutil * * * * * * * * * * * * * * * * * */
+/*    Copyright (C) 2023 - 2023 J.W. Jagersma, see COPYING.txt for details    */
 
 #pragma once
 #include <jw/common.h>
@@ -13,8 +13,8 @@
 namespace jw
 {
     // Synchronization mode for circular_queue.  This container can be made
-    // thread- and interrupt-safe for a single "writer" adding elements to the
-    // back, and a single "reader" consuming elements from the front.
+    // thread- and interrupt-safe for a single "producer" adding elements to
+    // the back, and a single "consumer" popping elements from the front.
     // The "interrupt" sync modes are meant for single-CPU systems only, where
     // either a read or a write will be an inherently atomic operation.
     enum class queue_sync
@@ -23,10 +23,10 @@ namespace jw
         none,
 
         // Reads may be interrupted by writes.
-        write_irq,
+        producer_irq,
 
         // Writes may be interrupted by reads.
-        read_irq,
+        consumer_irq,
 
         // Both reads and writes may occur simultaneously.
         thread
@@ -314,7 +314,8 @@ namespace jw
         }
     };
 
-    // Common interface to circular_queue for both reader and writer threads.
+    // Common interface to circular_queue for both producer and consumer
+    // threads.
     template<typename Queue, typename Storage, detail::queue_access Access>
     struct circular_queue_common_interface
     {
@@ -415,11 +416,11 @@ namespace jw
         }
     };
 
-    // Interface to circular_queue for use by the reader thread.
+    // Interface to circular_queue for use by the consumer thread.
     template<typename Queue, typename Storage>
-    struct circular_queue_reader : circular_queue_common_interface<Queue, Storage, detail::queue_access::read>
+    struct circular_queue_consumer : circular_queue_common_interface<Queue, Storage, detail::queue_access::consume>
     {
-        using common = circular_queue_common_interface<Queue, Storage, detail::queue_access::read>;
+        using common = circular_queue_common_interface<Queue, Storage, detail::queue_access::consume>;
 
         using size_type = common::size_type;
         using const_iterator = common::const_iterator;
@@ -429,7 +430,7 @@ namespace jw
         // are performed!
         void pop_front(size_type n = 1) noexcept
         {
-            const auto h = self()->load_head(access::read);
+            const auto h = self()->load_head(access::consume);
             self()->destroy_n(h, n);
             self()->store_head(self()->add(h, n));
         }
@@ -449,7 +450,7 @@ namespace jw
         }
 
     protected:
-        circular_queue_reader() noexcept = default;
+        circular_queue_consumer() noexcept = default;
 
     private:
         using access = detail::queue_access;
@@ -460,9 +461,9 @@ namespace jw
 
     // Interface to circular_queue for use by the writer thread.
     template<typename Queue, typename Storage>
-    struct circular_queue_writer : circular_queue_common_interface<Queue, Storage, detail::queue_access::write>
+    struct circular_queue_producer : circular_queue_common_interface<Queue, Storage, detail::queue_access::produce>
     {
-        using common = circular_queue_common_interface<Queue, Storage, detail::queue_access::write>;
+        using common = circular_queue_common_interface<Queue, Storage, detail::queue_access::produce>;
 
         using value_type = common::value_type;
         using size_type = common::size_type;
@@ -618,7 +619,7 @@ namespace jw
         }
 
     protected:
-        circular_queue_writer() noexcept = default;
+        circular_queue_producer() noexcept = default;
 
     private:
         using access = detail::queue_access;
@@ -632,8 +633,8 @@ namespace jw
         std::optional<std::invoke_result_t<F, size_type>> do_append(size_type n, F&& func)
             noexcept (noexcept(std::declval<F>()(std::declval<size_type>())))
         {
-            const auto t = self()->load_tail(access::write);
-            if (self()->distance(self()->load_head(access::write), t) + n > this->max_size()) [[unlikely]]
+            const auto t = self()->load_tail(access::produce);
+            if (self()->distance(self()->load_head(access::produce), t) + n > this->max_size()) [[unlikely]]
                 return std::nullopt;
             auto&& result = std::forward<F>(func)(t);
             self()->store_tail(self()->add(t, n));
@@ -645,8 +646,8 @@ namespace jw
     template<typename Storage>
     struct circular_queue :
         Storage,
-        private circular_queue_reader<circular_queue<Storage>, Storage>,
-        private circular_queue_writer<circular_queue<Storage>, Storage>
+        private circular_queue_consumer<circular_queue<Storage>, Storage>,
+        private circular_queue_producer<circular_queue<Storage>, Storage>
     {
         using value_type = Storage::value_type;
         using size_type = Storage::size_type;
@@ -660,8 +661,8 @@ namespace jw
         using atomic_iterator = circular_queue_iterator<circular_queue<Storage>, true>;
         using atomic_const_iterator = circular_queue_iterator<const circular_queue<Storage>, true>;
 
-        using reader = circular_queue_reader<circular_queue<Storage>, Storage>;
-        using writer = circular_queue_writer<circular_queue<Storage>, Storage>;
+        using consumer_type = circular_queue_consumer<circular_queue<Storage>, Storage>;
+        using producer_type = circular_queue_producer<circular_queue<Storage>, Storage>;
 
         static_assert(std::random_access_iterator<iterator>);
 
@@ -671,19 +672,19 @@ namespace jw
         template<typename... A>
         circular_queue& operator=(A&&... args) { Storage::operator=(std::forward<A>(args)...); return *this; }
 
-        ~circular_queue() noexcept { read()->clear(); }
+        ~circular_queue() noexcept { consumer()->clear(); }
 
-        reader* read() noexcept { return this; }
-        const reader* read() const noexcept { return this; }
+        consumer_type* consumer() noexcept { return this; }
+        const consumer_type* consumer() const noexcept { return this; }
 
-        writer* write() noexcept { return this; }
-        const writer* write() const noexcept { return this; }
+        producer_type* producer() noexcept { return this; }
+        const producer_type* producer() const noexcept { return this; }
 
     private:
         template<typename, bool> friend struct circular_queue_iterator;
         template<typename, typename, detail::queue_access> friend struct circular_queue_common_interface;
-        friend reader;
-        friend writer;
+        friend consumer_type;
+        friend producer_type;
     };
 
     // Circular queue using statically allocated storage.  May use
