@@ -1,7 +1,5 @@
-/* * * * * * * * * * * * * * libjwutil * * * * * * * * * * * * * */
-/* Copyright (C) 2023 J.W. Jagersma, see COPYING.txt for details */
-/* Copyright (C) 2022 J.W. Jagersma, see COPYING.txt for details */
-/* Copyright (C) 2021 J.W. Jagersma, see COPYING.txt for details */
+/* * * * * * * * * * * * * * * * * * jwutil * * * * * * * * * * * * * * * * * */
+/*    Copyright (C) 2021 - 2023 J.W. Jagersma, see COPYING.txt for details    */
 
 #pragma once
 #include <utility>
@@ -82,7 +80,7 @@ namespace jw
             struct { } nothing { };
             storage_t storage;
         };
-        R(*call)(const void*, A...) { nullptr };
+        R(*call)(const void*, A&&...) { nullptr };
     };
 
     template<typename F, typename Signature = typename detail::member_function_signature<decltype(&F::operator())>::type>
@@ -164,7 +162,7 @@ namespace jw
                 const detail::functor_vtable* vtable;
             };
         };
-        R(*call)(const void*, A...) { nullptr };
+        R(*call)(const void*, A&&...) { nullptr };
     };
 
     template<typename F, typename Signature = typename detail::member_function_signature<decltype(&F::operator())>::type>

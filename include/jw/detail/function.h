@@ -1,5 +1,5 @@
-/* * * * * * * * * * * * * * libjwutil * * * * * * * * * * * * * */
-/* Copyright (C) 2021 J.W. Jagersma, see COPYING.txt for details */
+/* * * * * * * * * * * * * * * * * * jwutil * * * * * * * * * * * * * * * * * */
+/*    Copyright (C) 2021 - 2023 J.W. Jagersma, see COPYING.txt for details    */
 
 #pragma once
 #include <cstdint>
@@ -14,7 +14,7 @@ namespace jw::detail
         static const functor* cast(const void* storage) noexcept { return static_cast<const functor*>(storage); }
 
         template<typename R, typename... A>
-        static R call(const void* self, A... args)
+        static R call(const void* self, A&&... args)
         {
             return cast(self)->lambda(std::forward<A>(args)...);
         }
