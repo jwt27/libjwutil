@@ -146,11 +146,11 @@ namespace jw
 
     // Convert fixed-point type to integer with rounding.
     template<typename T, std::size_t F>
-    inline constexpr T round(const fixed<T, F>& f) noexcept { return (f.value + (1 << (F - 1))) >> F; }
+    constexpr T round(const fixed<T, F>& f) noexcept { return (f.value + (1 << (F - 1))) >> F; }
 
     // Convert fixed-point to fixed-point with rounding.
     template<typename Fx, typename T, std::size_t F>
-    inline constexpr Fx round_to(const fixed<T, F>& f) noexcept
+    constexpr Fx round_to(const fixed<T, F>& f) noexcept
     {
         using T2 = typename Fx::type;
         using Max = max_t<T, T2>;
@@ -163,8 +163,97 @@ namespace jw
 
     // Convert fixed-point to N-bits fixed-point with rounding.
     template<std::size_t N, typename T, std::size_t F>
-    inline constexpr fixed<T, N> round_to(const fixed<T, F>& f) noexcept
+    constexpr fixed<T, N> round_to(const fixed<T, F>& f) noexcept
     {
         return round_to<fixed<T, N>>(f);
     }
+
+    template<typename T, std::size_t F, typename U, std::size_t G>
+    constexpr bool operator ==(const fixed<T, F>& l, const fixed<U, G>& r) noexcept
+    {
+        if constexpr (F == G)
+            return l.value == r.value;
+        if constexpr (F > G)
+        {
+            constexpr auto shift = F - G;
+            constexpr std::make_unsigned_t<T> mask = (1ull << shift) - 1;
+            return ((l.value >> shift) == r.value) & not (l.value & mask);
+        }
+        else return r == l;
+    }
+
+    template<typename T, std::size_t F, typename U, std::size_t G>
+    constexpr bool operator !=(const fixed<T, F>& l, const fixed<U, G>& r) noexcept
+    {
+        return not (l == r);
+    }
+
+    template<typename T, std::size_t F, typename U, std::size_t G>
+    constexpr bool operator <(const fixed<T, F>& l, const fixed<U, G>& r) noexcept
+    {
+        if constexpr (F == G)
+            return l.value < r.value;
+        if constexpr (F > G)
+        {
+            constexpr auto shift = F - G;
+            return (l.value >> shift) < r.value;
+        }
+        else
+        {
+            constexpr auto shift = G - F;
+            constexpr std::make_unsigned_t<U> mask = (1ull << shift) - 1;
+            const auto cmp = l.value <=> (r.value >> shift);
+            if (std::is_eq(cmp))
+                return r.value & mask;
+            return std::is_lt(cmp);
+        }
+    }
+
+    template<typename T, std::size_t F, typename U, std::size_t G>
+    constexpr bool operator >(const fixed<T, F>& l, const fixed<U, G>& r) noexcept
+    {
+        return r < l;
+    }
+
+    template<typename T, std::size_t F, typename U, std::size_t G>
+    constexpr bool operator <=(const fixed<T, F>& l, const fixed<U, G>& r) noexcept
+    {
+        return not (l > r);
+    }
+
+    template<typename T, std::size_t F, typename U, std::size_t G>
+    constexpr bool operator >=(const fixed<T, F>& l, const fixed<U, G>& r) noexcept
+    {
+        return not (l < r);
+    }
+
+    template<typename T, std::size_t F, std::integral U>
+    constexpr bool operator ==(const fixed<T, F>& l, const U& r) noexcept { return l == fixed<U, 0> { r }; }
+
+    template<typename T, std::size_t F, std::integral U>
+    constexpr bool operator !=(const fixed<T, F>& l, const U& r) noexcept { return not (l == r); }
+
+    template<typename T, std::size_t F, std::integral U>
+    constexpr bool operator <(const fixed<T, F>& l, const U& r) noexcept { return l < fixed<U, 0> { r }; }
+
+    template<typename T, std::size_t F, std::integral U>
+    constexpr bool operator <(const U& l, const fixed<T, F>& r) noexcept { return fixed<U, 0> { l } < r; }
+
+    template<typename T, std::size_t F, std::integral U>
+    constexpr bool operator >(const fixed<T, F>& l, const U& r) noexcept { return l > fixed<U, 0> { r }; }
+
+    template<typename T, std::size_t F, std::integral U>
+    constexpr bool operator >(const U& l, const fixed<T, F>& r) noexcept { return fixed<U, 0> { l } > r; }
+
+    template<typename T, std::size_t F, std::integral U>
+    constexpr bool operator <=(const fixed<T, F>& l, const U& r) noexcept { return l <= fixed<U, 0> { r }; }
+
+    template<typename T, std::size_t F, std::integral U>
+    constexpr bool operator <=(const U& l, const fixed<T, F>& r) noexcept { return fixed<U, 0> { l } <= r; }
+
+    template<typename T, std::size_t F, std::integral U>
+    constexpr bool operator >=(const fixed<T, F>& l, const U& r) noexcept { return l >= fixed<U, 0> { r }; }
+
+    template<typename T, std::size_t F, std::integral U>
+    constexpr bool operator >=(const U& l, const fixed<T, F>& r) noexcept { return fixed<U, 0> { l } >= r; }
 }
