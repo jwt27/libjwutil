@@ -1,5 +1,5 @@
 /* * * * * * * * * * * * * * * * * * jwutil * * * * * * * * * * * * * * * * * */
-/*    Copyright (C) 2023 - 2023 J.W. Jagersma, see COPYING.txt for details    */
+/*    Copyright (C) 2023 - 2024 J.W. Jagersma, see COPYING.txt for details    */
 
 #pragma once
 #include <jw/common.h>
@@ -116,15 +116,6 @@ namespace jw
             return not (*this == b);
         }
 
-        std::partial_ordering operator<=>(const circular_queue_iterator<const Queue, false>& b) const noexcept
-        {
-            if (container() != b.container()) return std::partial_ordering::unordered;
-            const auto x = *this - b;
-            if (x < 0) return std::partial_ordering::less;
-            if (x > 0) return std::partial_ordering::greater;
-            return std::partial_ordering::equivalent;
-        }
-
         // Given an iterator i that lies between min and max, add an offset to
         // it, without going past either min or max.  Assumes all iterators
         // are from the same container.
@@ -218,6 +209,18 @@ namespace jw
         container_type* c;
         std::conditional_t<Atomic, std::atomic<size_type>, size_type> i;
     };
+
+    template<typename Qa, typename Qb>
+    std::partial_ordering operator<=>(const circular_queue_iterator<Qa, false>& a,
+                                      const circular_queue_iterator<Qb, false>& b) noexcept
+    {
+        if (a.container() != b.container())
+            return std::partial_ordering::unordered;
+        const auto x = a - b;
+        if (x < 0) return std::partial_ordering::less;
+        if (x > 0) return std::partial_ordering::greater;
+        return std::partial_ordering::equivalent;
+    }
 
     // Given two iterators, returns the one closest to begin().  Assumes both
     // iterators are from the same container.
