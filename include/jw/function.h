@@ -62,8 +62,8 @@ namespace jw
         {
             using functor = detail::functor<std::remove_cvref_t<F>>;
             static_assert(std::is_trivially_destructible_v<functor>);
-            static_assert(sizeof(functor) <= sizeof(storage_t));
-            static_assert(alignof(functor) <= alignof(storage_t));
+            static_assert(sizeof(functor) <= sizeof(dummy));
+            static_assert(alignof(functor) <= alignof(dummy));
             trivial_function f;
             new (&f.storage) functor { std::forward<F>(func) };
             f.call = functor::template call<R, A...>;
@@ -73,12 +73,11 @@ namespace jw
         template<typename, unsigned> friend struct trivial_function;
         template<typename, unsigned> friend struct function;
         using dummy = detail::functor<decltype([x = std::declval<std::array<void*, N>>()](A...) { })>;
-        using storage_t = std::aligned_storage_t<sizeof(dummy), alignof(dummy)>;
 
         union
         {
             struct { } nothing { };
-            storage_t storage;
+            alignas(dummy) std::byte storage[sizeof(dummy)];
         };
         R(*call)(const void*, A&&...) { nullptr };
     };
@@ -134,8 +133,8 @@ namespace jw
         static function create(F&& func)
         {
             using functor = detail::functor<std::remove_cvref_t<F>>;
-            static_assert(sizeof(functor) <= sizeof(storage_t));
-            static_assert(alignof(functor) <= alignof(storage_t));
+            static_assert(sizeof(functor) <= sizeof(dummy));
+            static_assert(alignof(functor) <= alignof(dummy));
             function f;
             new (&f.storage) functor { std::forward<F>(func) };
             f.call = functor::template call<R, A...>;
@@ -151,14 +150,14 @@ namespace jw
         }
 
         template<typename, unsigned> friend struct function;
-        using storage_t = trivial_function<R(A...), N>::storage_t;
+        using dummy = trivial_function<R(A...), N>::dummy;
 
         union
         {
             struct { } nothing { };
             struct
             {
-                storage_t storage;
+                alignas(dummy) std::byte storage[sizeof(dummy)];
                 const detail::functor_vtable* vtable;
             };
         };
