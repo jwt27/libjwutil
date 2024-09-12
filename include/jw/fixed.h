@@ -175,6 +175,37 @@ namespace jw
         return round_to<0>(f).value;
     }
 
+    // Returns the fractional part.
+    // Note that this is always positive: frac(x) == x - floor(x)
+    template<typename T, std::size_t F>
+    constexpr fixed<T, F> frac(fixed<T, F> f) noexcept
+    {
+        f.value &= (1ull << F) - 1;
+        return f;
+    }
+
+    template<typename T, std::size_t F>
+    constexpr T floor(const fixed<T, F>& f) noexcept
+    {
+        return f.value >> F;
+    }
+
+    template<typename T, std::size_t F>
+    constexpr T ceil(const fixed<T, F>& f) noexcept
+    {
+        return floor(f) + (frac(f).value != 0);
+    }
+
+    template<typename T, std::size_t F>
+    constexpr T trunc(const fixed<T, F>& f) noexcept
+    {
+        if constexpr (std::unsigned_integral<T>)
+            return floor(f);
+
+        const auto sign = f.value >> std::numeric_limits<T>::digits;
+        return floor(f) - sign;
+    }
+
     template<typename T, std::size_t F, typename U, std::size_t G>
     constexpr bool operator ==(const fixed<T, F>& l, const fixed<U, G>& r) noexcept
     {
