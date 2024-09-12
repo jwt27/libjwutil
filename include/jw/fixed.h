@@ -180,7 +180,7 @@ namespace jw
     {
         if constexpr (F == G)
             return l.value == r.value;
-        if constexpr (F > G)
+        else if constexpr (F > G)
         {
             constexpr auto shift = F - G;
             constexpr std::make_unsigned_t<T> mask = (1ull << shift) - 1;
@@ -200,20 +200,10 @@ namespace jw
     {
         if constexpr (F == G)
             return l.value < r.value;
-        if constexpr (F > G)
-        {
-            constexpr auto shift = F - G;
-            return (l.value >> shift) < r.value;
-        }
+        else if constexpr (F > G)
+            return (l.value >> (F - G)) < r.value;
         else
-        {
-            constexpr auto shift = G - F;
-            constexpr std::make_unsigned_t<U> mask = (1ull << shift) - 1;
-            const auto cmp = l.value <=> (r.value >> shift);
-            if (std::is_eq(cmp))
-                return r.value & mask;
-            return std::is_lt(cmp);
-        }
+            return l < round_to<F>(r);
     }
 
     template<typename T, std::size_t F, typename U, std::size_t G>
