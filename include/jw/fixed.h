@@ -1,5 +1,5 @@
 /* * * * * * * * * * * * * * * * * * jwutil * * * * * * * * * * * * * * * * * */
-/*    Copyright (C) 2021 - 2023 J.W. Jagersma, see COPYING.txt for details    */
+/*    Copyright (C) 2021 - 2024 J.W. Jagersma, see COPYING.txt for details    */
 
 #pragma once
 #include <cstdint>
@@ -144,21 +144,18 @@ namespace jw
         template<std::integral U> constexpr fixed(noshift_t, U v) noexcept : value { static_cast<T>(v) } { }
     };
 
-    // Convert fixed-point type to integer with rounding.
-    template<typename T, std::size_t F>
-    constexpr T round(const fixed<T, F>& f) noexcept { return (f.value + (1 << (F - 1))) >> F; }
 
     // Convert fixed-point to fixed-point with rounding.
     template<typename Fx, typename T, std::size_t F>
     constexpr Fx round_to(const fixed<T, F>& f) noexcept
     {
-        using T2 = typename Fx::type;
-        using Max = max_t<T, T2>;
-        using Intermediate = std::conditional_t<std::is_signed_v<T2>, std::make_signed_t<Max>, std::make_unsigned_t<Max>>;
-        constexpr auto N = Fx::frac_bits;
-        constexpr int round_bits = F - N - 1;
-        constexpr Intermediate rounding = round_bits < 0 ? 0 : 1 << round_bits;
-        return Fx::make(shl(static_cast<Intermediate>(f.value) + rounding, N - F));
+        constexpr auto G = Fx::frac_bits;
+        if constexpr (F > G)
+        {
+            const auto x = f.value >> (F - G - 1);
+            return Fx::make((x + 1) >> 1);
+        }
+        else return Fx { f };
     }
 
     // Convert fixed-point to N-bits fixed-point with rounding.
@@ -166,6 +163,13 @@ namespace jw
     constexpr fixed<T, N> round_to(const fixed<T, F>& f) noexcept
     {
         return round_to<fixed<T, N>>(f);
+    }
+
+    // Convert fixed-point type to integer with rounding.
+    template<typename T, std::size_t F>
+    constexpr T round(const fixed<T, F>& f) noexcept
+    {
+        return round_to<0>(f).value;
     }
 
     template<typename T, std::size_t F, typename U, std::size_t G>
