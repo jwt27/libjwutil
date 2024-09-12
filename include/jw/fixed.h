@@ -14,13 +14,13 @@ namespace jw::detail
     template<> struct larger_int<1> { using type = std::int16_t; };
     template<> struct larger_int<2> { using type = std::int32_t; };
     template<> struct larger_int<4> { using type = std::int64_t; };
-    template<> struct larger_int<8> { using type = std::int64_t; };
+    template<> struct larger_int<8> { using type = std::intmax_t; };
 
     template<std::size_t> struct larger_uint { using type = void; };
     template<> struct larger_uint<1> { using type = std::uint16_t; };
     template<> struct larger_uint<2> { using type = std::uint32_t; };
     template<> struct larger_uint<4> { using type = std::uint64_t; };
-    template<> struct larger_uint<8> { using type = std::uint64_t; };
+    template<> struct larger_uint<8> { using type = std::uintmax_t; };
 }
 
 namespace jw
@@ -33,8 +33,8 @@ namespace jw
                                                              typename detail::larger_uint<sizeof(T)>::type>;
 
     template<typename T, typename U>
-    concept same_sign_int = std::is_signed_v<T> == std::is_signed_v<U>
-                            and std::integral<T> and std::integral<U>;
+    concept same_sign_int = std::integral<T> and std::integral<U>
+                            and std::is_signed_v<T> == std::is_signed_v<U>;
 
     // Fixed-point data type
     template<std::integral T, std::size_t F>
