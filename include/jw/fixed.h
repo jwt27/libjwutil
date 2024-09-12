@@ -70,6 +70,9 @@ namespace jw
 
         template<typename U> constexpr fixed& operator =(U v) { *this  = fixed { v }; return *this; }
 
+        constexpr fixed operator +() const noexcept { return make(+value); }
+        constexpr fixed operator -() const noexcept { return make(-value); }
+
         constexpr fixed& operator+=(const fixed& v) { value += v.value; return *this; }
         constexpr fixed& operator-=(const fixed& v) { value -= v.value; return *this; }
         constexpr fixed& operator*=(const fixed& v) { value *= v.value; value >>= F; return *this; }
