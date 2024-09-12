@@ -147,6 +147,8 @@ namespace jw
         template<std::integral U> constexpr fixed(noshift_t, U v) noexcept : value { static_cast<T>(v) } { }
     };
 
+    template<std::integral T>
+    fixed(T) -> fixed<T, 0>;
 
     // Convert fixed-point to fixed-point with rounding.
     template<typename Fx, typename T, std::size_t F>
