@@ -75,8 +75,10 @@ namespace jw
 
         constexpr fixed& operator+=(const fixed& v) { value += v.value; return *this; }
         constexpr fixed& operator-=(const fixed& v) { value -= v.value; return *this; }
-        constexpr fixed& operator*=(const fixed& v) { value *= v.value; value >>= F; return *this; }
-        constexpr fixed& operator/=(const fixed& v) { value <<= F; value /= v.value; return *this; }
+        template<std::integral U, std::size_t G>
+        constexpr fixed& operator*=(const fixed<U, G>& v) { value *= v.value; value >>= G; return *this; }
+        template<std::integral U, std::size_t G>
+        constexpr fixed& operator/=(const fixed<U, G>& v) { value <<= G; value /= v.value; return *this; }
 
         template<same_sign_int<T> U, std::size_t G> friend constexpr auto operator+(const fixed& f, const fixed<U, G>& v)
         {
