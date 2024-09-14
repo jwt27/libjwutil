@@ -54,7 +54,7 @@ namespace jw
         constexpr fixed(U v) noexcept : value { static_cast<T>(round(v * (1ULL << F))) } { }
 
         template<std::integral U>
-        constexpr fixed(U v) noexcept : value { static_cast<T>(v) << F } { }
+        constexpr fixed(U v) noexcept : value { static_cast<T>(static_cast<T>(v) << F) } { }
 
         template<same_sign_int<T> U, std::size_t G>
         constexpr fixed(const fixed<U, G>& v) noexcept : fixed { convert(v) } { }
@@ -80,47 +80,56 @@ namespace jw
         template<std::integral U, std::size_t G>
         constexpr fixed& operator/=(const fixed<U, G>& v) { value <<= G; value /= v.value; return *this; }
 
-        template<same_sign_int<T> U, std::size_t G> friend constexpr auto operator+(const fixed& f, const fixed<U, G>& v)
+        template<std::integral U, std::size_t G>
+        friend constexpr auto operator+(const fixed& l, const fixed<U, G>& r)
         {
-            fixed<max_t<T, U>, std::max(F, G)> a { f }, b { v };
-            return a += b;
-        }
-        template<same_sign_int<T> U, std::size_t G> friend constexpr auto operator-(const fixed& f, const fixed<U, G>& v)
-        {
-            fixed<max_t<T, U>, std::max(F, G)> a { f }, b { v };
-            return a -= b;
-        }
-        template<same_sign_int<T> U, std::size_t G> friend constexpr auto operator*(const fixed& f, const fixed<U, G>& v)
-        {
-            larger_t<max_t<T, U>> a { f.value };
-            return fixed<larger_t<max_t<T, U>>, F + G>::make(a * v.value);
-        }
-        template<same_sign_int<T> U, std::size_t G> friend constexpr auto operator/(const fixed& f, const fixed<U, G>& v)
-        {
-            if constexpr (static_cast<signed>(F - G) <= 0)
-                return (static_cast<larger_t<T>>(f.value) << -(F - G)) / v.value;
-            else return fixed<max_t<T, U>, F - G>::make(f.value / v.value);
+            fixed<decltype(l.value + r.value), std::max(F, G)> a { l }, b { r };
+            a += b;
+            return a;
         }
 
-        template<std::integral U> constexpr fixed& operator+=(U v) { value += static_cast<larger_t<U>>(v) << F; return *this; }
-        template<std::integral U> constexpr fixed& operator-=(U v) { value -= static_cast<larger_t<U>>(v) << F; return *this; }
-        template<std::integral U> constexpr fixed& operator*=(U v) { value *= v; return *this; }
-        template<std::integral U> constexpr fixed& operator/=(U v) { value /= v; return *this; }
+        template<std::integral U, std::size_t G>
+        friend constexpr auto operator-(const fixed& l, const fixed<U, G>& r)
+        {
+            fixed<decltype(l.value - r.value), std::max(F, G)> a { l }, b { r };
+            a -= b;
+            return a;
+        }
+
+        template<std::integral U, std::size_t G>
+        friend constexpr auto operator*(const fixed& l, const fixed<U, G>& r)
+        {
+            const larger_t<T> a { l.value };
+            return fixed<decltype(a * r.value), F + G>::make(a * r.value);
+        }
+
+        template<std::integral U, std::size_t G>
+        friend constexpr auto operator/(const fixed& l, const fixed<U, G>& r)
+        {
+            if constexpr (static_cast<signed>(F - G) <= 0)
+                return (static_cast<larger_t<T>>(l.value) << -(F - G)) / r.value;
+            else return fixed<decltype(l.value / r.value), F - G>::make(l.value / r.value);
+        }
+
+        template<std::integral U> constexpr fixed& operator+=(U v) { return *this += fixed<decltype(value + v), F> { v }; }
+        template<std::integral U> constexpr fixed& operator-=(U v) { return *this -= fixed<decltype(value - v), F> { v }; }
+        template<std::integral U> constexpr fixed& operator*=(U v) { return *this *= fixed<U, 0> { v }; }
+        template<std::integral U> constexpr fixed& operator/=(U v) { return *this /= fixed<U, 0> { v }; }
 
         template<std::floating_point U> constexpr fixed& operator+=(U v) { value = round(value + v * (1 << F)); return *this; }
         template<std::floating_point U> constexpr fixed& operator-=(U v) { value = round(value - v * (1 << F)); return *this; }
         template<std::floating_point U> constexpr fixed& operator*=(U v) { value = round(value * v); return *this; }
         template<std::floating_point U> constexpr fixed& operator/=(U v) { value = round(value / v); return *this; }
 
-        template<std::integral U> friend constexpr auto operator+(const fixed& f, U v) { return fixed<max_t<T, U>, F> { f } += v; }
-        template<std::integral U> friend constexpr auto operator-(const fixed& f, U v) { return fixed<T, F> { f } -= v; }
-        template<std::integral U> friend constexpr auto operator*(const fixed& f, U v) { return fixed<larger_t<T>, F> { f } *= v; }
-        template<std::integral U> friend constexpr auto operator/(const fixed& f, U v) { return fixed<T, F> { f } /= v; }
+        template<std::integral U> friend constexpr auto operator+(const fixed& f, U v) { return f + fixed<U, 0> { v }; }
+        template<std::integral U> friend constexpr auto operator-(const fixed& f, U v) { return f - fixed<U, 0> { v }; }
+        template<std::integral U> friend constexpr auto operator*(const fixed& f, U v) { return f * fixed<U, 0> { v }; }
+        template<std::integral U> friend constexpr auto operator/(const fixed& f, U v) { return f / fixed<U, 0> { v }; }
 
-        template<std::integral U> friend constexpr auto operator+(U v, const fixed& f) { return f + v; }
-        template<std::integral U> friend constexpr auto operator-(U v, const fixed& f) { return fixed { v } -= f; }
-        template<std::integral U> friend constexpr auto operator*(U v, const fixed& f) { return f * v; }
-        template<std::integral U> friend constexpr auto operator/(U v, const fixed& f) { return (static_cast<larger_t<U>>(v) << F) / f.value; }
+        template<std::integral U> friend constexpr auto operator+(U v, const fixed& f) { return fixed<U, 0> { v } + f; }
+        template<std::integral U> friend constexpr auto operator-(U v, const fixed& f) { return fixed<U, 0> { v } - f; }
+        template<std::integral U> friend constexpr auto operator*(U v, const fixed& f) { return fixed<U, 0> { v } * f; }
+        template<std::integral U> friend constexpr auto operator/(U v, const fixed& f) { return fixed<U, 0> { v } / f; }
 
         template<std::floating_point U> friend constexpr auto operator+(const fixed& f, U v) { return static_cast<U>(f) + v; }
         template<std::floating_point U> friend constexpr auto operator-(const fixed& f, U v) { return static_cast<U>(f) - v; }
