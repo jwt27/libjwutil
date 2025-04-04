@@ -1,12 +1,13 @@
 /* * * * * * * * * * * * * * * * * * jwutil * * * * * * * * * * * * * * * * * */
-/*    Copyright (C) 2021 - 2024 J.W. Jagersma, see COPYING.txt for details    */
+/*    Copyright (C) 2021 - 2025 J.W. Jagersma, see COPYING.txt for details    */
 
 #pragma once
+#include <jw/math.h>
+#include <jw/branchless.h>
 #include <cstdint>
 #include <type_traits>
 #include <limits>
 #include <concepts>
-#include <jw/math.h>
 
 namespace jw::detail
 {
@@ -217,6 +218,12 @@ namespace jw
 
         const auto sign = f.value >> std::numeric_limits<T>::digits;
         return floor(f) - sign;
+    }
+
+    template<typename T, std::size_t F>
+    constexpr fixed<T, F> abs(const fixed<T, F>& f) noexcept
+    {
+        return fixed<T, F>::make(abs(f.value));
     }
 
     template<typename T, std::size_t F, typename U, std::size_t G>
