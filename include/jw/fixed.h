@@ -233,9 +233,10 @@ namespace jw
             return l.value == r.value;
         else if constexpr (F > G)
         {
+            static_assert (std::is_signed_v<T> == std::is_signed_v<U>);
             constexpr auto shift = F - G;
             constexpr std::make_unsigned_t<T> mask = (1ull << shift) - 1;
-            return ((l.value >> shift) == r.value) & not (l.value & mask);
+            return (((l.value >> shift) xor r.value) | (l.value & mask)) == 0;
         }
         else return r == l;
     }
