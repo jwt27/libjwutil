@@ -43,6 +43,15 @@ namespace jw
         }
     }
 
+    // "inline if"
+    template<std::integral T>
+    constexpr T iif(bool c, T if_true, T if_false) noexcept
+    {
+        const auto x = if_true xor if_false;
+        const auto y = static_cast<std::make_unsigned_t<T>>(c) - 1;
+        return if_true xor (x & y);
+    }
+
     template<std::integral T>
     constexpr T min(T a, T b) noexcept
     {
