@@ -101,15 +101,11 @@ namespace jw
         template<typename>
         using remove = type_list<>;
 
-        template<std::size_t N>
-        using remove_first = decltype([]
-        {
-            static_assert (N == 0);
-            return std::type_identity<type_list<>> { };
-        }())::type;
+        template<std::size_t>
+        using remove_first = type_list<>;
 
-        template<std::size_t N>
-        using remove_last = remove_first<N>;
+        template<std::size_t>
+        using remove_last = type_list<>;
 
         using remove_duplicates = type_list<>;
 
