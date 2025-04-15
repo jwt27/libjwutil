@@ -60,18 +60,18 @@ namespace jw
         using remove_at = decltype([]
         {
             if constexpr (I == 0)
-                return std::type_identity<next> { };
+                return next { };
             else
-                return std::type_identity<typename next::template remove_at<I - 1>::template prepend<T>> { };
-        }())::type;
+                return typename next::template remove_at<I - 1>::template prepend<T> { };
+        }());
 
         using remove_duplicates = next::remove_duplicates::template remove<T>::template prepend<T>;
 
         template<typename List>
         using concat = decltype([]<typename... Us>(type_list<Us...>)
         {
-            return std::type_identity<type_list<T, Ts..., Us...>> { };
-        }(List { }))::type;
+            return type_list<T, Ts..., Us...> { };
+        }(List { }));
     };
 
     template<>
@@ -109,10 +109,10 @@ namespace jw
 
         using remove_duplicates = type_list<>;
 
-        template<typename U>
+        template<typename List>
         using concat = decltype([]<typename... Us>(type_list<Us...>)
         {
-            return std::type_identity<type_list<Us...>> { };
-        }(U { }))::type;
+            return type_list<Us...> { };
+        }(List { }));
     };
 }
