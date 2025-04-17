@@ -9,6 +9,12 @@ namespace jw
     template<typename...>
     struct type_list;
 
+    template<typename>
+    constexpr bool is_type_list = false;
+
+    template<typename... Ts>
+    constexpr bool is_type_list<type_list<Ts...>> = true;
+
     template<typename T, typename... Ts>
     struct type_list<T, Ts...>
     {
@@ -72,6 +78,14 @@ namespace jw
         {
             return type_list<T, Ts..., Us...> { };
         }(List { }));
+
+        // Remove types that do not appear in List (preserving order and
+        // duplicates).
+        template<typename List> requires (is_type_list<List>)
+        using intersect
+            = std::conditional_t<List::template contains<T>,
+                                 typename next::template intersect<List>::template prepend<T>,
+                                 typename next::template intersect<List>>;
     };
 
     template<>
@@ -109,10 +123,10 @@ namespace jw
 
         using remove_duplicates = type_list<>;
 
-        template<typename List>
-        using concat = decltype([]<typename... Us>(type_list<Us...>)
-        {
-            return type_list<Us...> { };
-        }(List { }));
+        template<typename List> requires (is_type_list<List>)
+        using concat = List;
+
+        template<typename List> requires (is_type_list<List>)
+        using intersect = type_list<>;
     };
 }
