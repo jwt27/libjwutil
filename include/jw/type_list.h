@@ -38,15 +38,6 @@ namespace jw
         template<typename... Us>
         using append = type_list<T, Ts..., Us...>;
 
-        template<std::size_t I>
-        using at = decltype([]
-        {
-            if constexpr (I == 0)
-                return std::type_identity<T> { };
-            else
-                return std::type_identity<typename next::template at<I - 1>> { };
-        }())::type;
-
         using reverse = next::reverse::template append<T>;
 
         template<typename U>
@@ -72,6 +63,9 @@ namespace jw
         }());
 
         using remove_duplicates = next::remove_duplicates::template remove<T>::template prepend<T>;
+
+        template<std::size_t I>
+        using at = remove_first<I>::first;
 
         template<typename List>
         using concat = decltype([]<typename... Us>(type_list<Us...>)
