@@ -123,4 +123,12 @@ namespace jw
         template<typename List> requires (is_type_list<List>)
         using intersect = type_list<>;
     };
+
+    // Create a type_list by unpacking a different variadic type, eg.
+    // std::tuple or std::variant.
+    template<typename U>
+    using type_list_from = decltype([]<template<typename...> typename T, typename... Ts>(T<Ts...>)
+    {
+        return type_list<Ts...> { };
+    }(std::declval<U>()));
 }
