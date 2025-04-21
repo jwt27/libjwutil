@@ -40,11 +40,29 @@ namespace jw
 
         using reverse = next::reverse::template append<T>;
 
+        template<typename List>
+        using concat = decltype([]<typename... Us>(type_list<Us...>)
+        {
+            return type_list<T, Ts..., Us...> { };
+        }(List { }));
+
+        // Remove types that do not appear in List (preserving order and
+        // duplicates).
+        template<typename List> requires (is_type_list<List>)
+        using intersect
+            = std::conditional_t<List::template contains<T>,
+                                 typename next::template intersect<List>::template prepend<T>,
+                                 typename next::template intersect<List>>;
+
+        // Remove types that also appear in List.
+        template<typename List> requires (is_type_list<List>)
+        using subtract
+            = std::conditional_t<List::template contains<T>,
+                                 typename next::template subtract<List>,
+                                 typename next::template subtract<List>::template prepend<T>>;
+
         template<typename U>
-        using remove
-            = std::conditional_t<std::is_same_v<T, U>,
-                                 typename next::template remove<U>, 
-                                 typename next::template remove<U>::template prepend<T>>;
+        using remove = subtract<type_list<U>>;
 
         template<std::size_t N>
         using remove_first
@@ -66,20 +84,6 @@ namespace jw
 
         template<std::size_t I>
         using at = remove_first<I>::first;
-
-        template<typename List>
-        using concat = decltype([]<typename... Us>(type_list<Us...>)
-        {
-            return type_list<T, Ts..., Us...> { };
-        }(List { }));
-
-        // Remove types that do not appear in List (preserving order and
-        // duplicates).
-        template<typename List> requires (is_type_list<List>)
-        using intersect
-            = std::conditional_t<List::template contains<T>,
-                                 typename next::template intersect<List>::template prepend<T>,
-                                 typename next::template intersect<List>>;
     };
 
     template<>
@@ -106,6 +110,15 @@ namespace jw
 
         using reverse = type_list<>;
 
+        template<typename List> requires (is_type_list<List>)
+        using concat = List;
+
+        template<typename List> requires (is_type_list<List>)
+        using intersect = type_list<>;
+
+        template<typename List> requires (is_type_list<List>)
+        using subtract = type_list<>;
+
         template<typename>
         using remove = type_list<>;
 
@@ -116,12 +129,6 @@ namespace jw
         using remove_last = type_list<>;
 
         using remove_duplicates = type_list<>;
-
-        template<typename List> requires (is_type_list<List>)
-        using concat = List;
-
-        template<typename List> requires (is_type_list<List>)
-        using intersect = type_list<>;
     };
 
     // Create a type_list by unpacking a different variadic type, eg.
