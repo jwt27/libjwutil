@@ -39,11 +39,14 @@ namespace jw
     }
 
     template<typename F>
-    struct local_destructor
+    struct finally
     {
         F dtor;
-        ~local_destructor() { dtor(); }
+        ~finally() { dtor(); }
     };
+
+    template<typename F>
+    using local_destructor [[deprecated]] = finally<F>;
 
     struct empty { };
 
