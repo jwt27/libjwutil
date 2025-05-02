@@ -25,6 +25,22 @@ namespace jw
         return (x + sign) xor sign;
     }
 
+    template<std::unsigned_integral T>
+    constexpr T add_saturate(T x, T y) noexcept
+    {
+        T sum;
+        const T carry = __builtin_add_overflow(x, y, &sum);
+        return sum | -carry;
+    }
+
+    template<std::unsigned_integral T>
+    constexpr T sub_saturate(T x, T y) noexcept
+    {
+        T diff;
+        const T borrow = __builtin_sub_overflow(x, y, &diff);
+        return diff & (borrow - 1u);
+    }
+
     template<std::integral T>
     constexpr std::pair<T, T> minmax(T a, T b) noexcept
     {
