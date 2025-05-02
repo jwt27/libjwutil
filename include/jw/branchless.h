@@ -2,6 +2,7 @@
 /*    Copyright (C) 2025 - 2025 J.W. Jagersma, see COPYING.txt for details    */
 
 #pragma once
+#include <cstdint>
 #include <concepts>
 #include <limits>
 #include <tuple>
@@ -49,6 +50,13 @@ namespace jw
         const auto x = if_true xor if_false;
         const auto y = static_cast<std::make_unsigned_t<T>>(c) - 1;
         return if_true xor (x & y);
+    }
+
+    template<typename T>
+    constexpr T* iif(bool c, T* if_true, T* if_false) noexcept
+    {
+        const auto r = iif(c, reinterpret_cast<std::uintptr_t>(if_true), reinterpret_cast<std::uintptr_t>(if_true));
+        return reinterpret_cast<T*>(r);
     }
 
     template<std::integral T>
