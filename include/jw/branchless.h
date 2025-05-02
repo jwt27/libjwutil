@@ -2,7 +2,6 @@
 /*    Copyright (C) 2025 - 2025 J.W. Jagersma, see COPYING.txt for details    */
 
 #pragma once
-#include <jw/common.h>
 #include <concepts>
 #include <limits>
 #include <tuple>
@@ -84,11 +83,19 @@ namespace jw
         return x & sign_mask(x);
     }
 
+    // Fast alternative to: max(1, x).
+    template<std::unsigned_integral T>
+    constexpr T clamp_one(T x) noexcept
+    {
+        // cmp x, 1; adc x, 0
+        return (x < 1) + x;
+    }
+
     // Clamp (signed) array index I between 0 and (unsigned) MAX.
     template<std::integral T, std::integral U>
     constexpr auto clamp_index(T i, U max) noexcept
     {
-        assume(max >= 0);
+        [[assume(max >= 0)]];
         return min<std::make_unsigned_t<U>>(clamp_positive(i), max);
     }
 }
