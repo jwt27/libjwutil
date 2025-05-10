@@ -258,12 +258,10 @@ namespace jw
 
     // Statically allocated storage backend for circular_queue.
     template<typename T, std::size_t N, queue_sync Sync>
+    requires (std::has_single_bit(N))
     struct circular_queue_static_storage :
         detail::circular_queue_static_storage_base<T, N, Sync>
     {
-        static_assert(std::has_single_bit(N));
-        static_assert(N > 1);
-
         using value_type = T;
         using size_type = std::size_t;
         using difference_type = std::ptrdiff_t;
@@ -271,9 +269,6 @@ namespace jw
         using const_reference = const T&;
         using pointer = T*;
         using const_pointer = const T*;
-
-    protected:
-        template<typename, std::size_t, queue_sync> friend struct circular_queue_static_storage;
 
         circular_queue_static_storage() noexcept = default;
     };
@@ -296,9 +291,6 @@ namespace jw
         // Resize allocated storage to at least the specified size.  All
         // iterators are invalidated.  Not thread-safe!
         void resize(size_type new_size) { base::resize(new_size); }
-
-    protected:
-        template<typename, queue_sync, typename> friend struct circular_queue_dynamic_storage;
 
         // Create a new dynamic storage of at least the specified size.
         circular_queue_dynamic_storage(size_type size, const Alloc& allocator = { }) : base { size, allocator } { }
@@ -669,11 +661,8 @@ namespace jw
 
         static_assert(std::random_access_iterator<iterator>);
 
-        template<typename... A>
-        circular_queue(A&&... args) : Storage { std::forward<A>(args)... } { }
-
-        template<typename... A>
-        circular_queue& operator=(A&&... args) { Storage::operator=(std::forward<A>(args)...); return *this; }
+        using Storage::Storage;
+        using Storage::operator=;
 
         ~circular_queue() noexcept { consumer()->clear(); }
 
