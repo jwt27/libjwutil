@@ -137,20 +137,20 @@ namespace jw
         // distance between them.  That is: b == a + a.distance_to(b).
         // Assumes both iterators are from the same container.  Slightly
         // faster than subtraction.
-        size_type distance_to(const circular_queue_iterator<const Queue, false>& i) const noexcept
+        size_type distance_to(const circular_queue_iterator<const Queue, false>& x) const noexcept
         {
-            assume(container() == i.container());
-            return distance(position(), i.position());
+            assume(container() == x.container());
+            return distance(position(), x.position());
         }
 
         // Given an iterator i that comes before this iterator, find the
         // distance between them.  That is: b == a - a.distance_from(b).
         // Assumes both iterators are from the same container.  Slightly
         // faster than subtraction.
-        size_type distance_from(const circular_queue_iterator<const Queue, false>& other) const noexcept
+        size_type distance_from(const circular_queue_iterator<const Queue, false>& x) const noexcept
         {
-            assume(container() == i.container());
-            return distance(i.position(), position());
+            assume(container() == x.container());
+            return distance(x.position(), position());
         }
 
         size_type position() const noexcept { return c->wrap(load()); }
