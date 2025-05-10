@@ -187,9 +187,7 @@ namespace jw::detail
         // Find relative position (distance) of I from head position H.
         std::size_t distance(std::size_t h, std::size_t i) const noexcept
         {
-            const std::ptrdiff_t n = i - h;
-            if (n >= 0) return n;
-            else return self()->allocated_size() + n;
+            return self()->wrap(i - h);
         }
 
         // Find absolute position of index I from head position H.
