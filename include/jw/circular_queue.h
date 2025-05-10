@@ -631,9 +631,9 @@ namespace jw
             const auto t = self()->load_tail(access::produce);
             if (self()->distance(self()->load_head(access::produce), t) + n > this->max_size()) [[unlikely]]
                 return std::nullopt;
-            auto&& result = std::forward<F>(func)(t);
-            self()->store_tail(self()->add(t, n));
-            return { std::forward<decltype(result)>(result) };
+
+            finally store { [&] { self()->store_tail(self()->add(t, n)); } };
+            return { std::forward<F>(func)(t) };
         }
     };
 
