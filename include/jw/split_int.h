@@ -1,6 +1,5 @@
-/* * * * * * * * * * * * * * libjwutil * * * * * * * * * * * * * */
-/* Copyright (C) 2022 J.W. Jagersma, see COPYING.txt for details */
-/* Copyright (C) 2021 J.W. Jagersma, see COPYING.txt for details */
+/* * * * * * * * * * * * * * * * * * jwutil * * * * * * * * * * * * * * * * * */
+/*    Copyright (C) 2021 - 2025 J.W. Jagersma, see COPYING.txt for details    */
 
 #pragma once
 #include <cstdint>
@@ -14,19 +13,18 @@ namespace jw
 {
     namespace detail
     {
-        template<typename, std::size_t, typename = bool>
+        template<bool, std::size_t>
         union split_int;
 
-        template<typename T, std::size_t size>
-        union [[gnu::packed]] alignas(alignment_for_bits(size, 4))
-            split_int<T, size, std::enable_if_t<(size > 16) and (size / 2) % 2 == 0, bool>>
+        template<bool Signed, std::size_t N> requires ((N > 16) and (N / 2) % 2 == 0)
+        union [[gnu::packed]] alignas(alignment_for_bits(N, 4)) split_int<Signed, N>
         {
             struct [[gnu::packed]]
             {
-                split_int<unsigned, (size / 2)> lo;
-                split_int<T, (size / 2)> hi;
+                split_int<false, (N / 2)> lo;
+                split_int<Signed, (N / 2)> hi;
             };
-            std::conditional_t<std::is_signed_v<T>, std::int64_t, std::uint64_t> value : size;
+            std::conditional_t<Signed, std::int64_t, std::uint64_t> value : N;
 
             constexpr split_int() noexcept = default;
             constexpr split_int(const split_int&) noexcept = default;
@@ -40,16 +38,15 @@ namespace jw
             constexpr operator auto() const noexcept { return value; }
         };
 
-        template<typename T, std::size_t size>
-        union [[gnu::packed]] alignas(alignment_for_bits(size, 4))
-            split_int<T, size, std::enable_if_t<((size <= 16) or (size / 2) % 2 != 0) and (size % 2) == 0, bool>>
+        template<bool Signed, std::size_t N> requires (((N <= 16) or (N / 2) % 2 != 0) and (N % 2) == 0)
+        union [[gnu::packed]] alignas(alignment_for_bits(N, 4)) split_int<Signed, N>
         {
             struct [[gnu::packed]]
             {
-                unsigned lo : size / 2;
-                T hi : size / 2;
+                unsigned lo : N / 2;
+                std::conditional_t<Signed, signed, unsigned> hi : N / 2;
             };
-            std::conditional_t<std::is_signed_v<T>, std::int64_t, std::uint64_t> value : size;
+            std::conditional_t<Signed, std::int64_t, std::uint64_t> value : N;
 
             constexpr split_int() noexcept = default;
             constexpr split_int(const split_int&) noexcept = default;
@@ -63,8 +60,8 @@ namespace jw
         };
     }
 
-    template<std::size_t N> using split_uint = detail::split_int<unsigned, N>;
-    template<std::size_t N> using split_int = detail::split_int<signed, N>;
+    template<std::size_t N> using split_uint = detail::split_int<false, N>;
+    template<std::size_t N> using split_int = detail::split_int<true, N>;
 
     using split_uint16_t = split_uint<16>;
     using split_uint32_t = split_uint<32>;
