@@ -1,6 +1,5 @@
-/* * * * * * * * * * * * * * libjwutil * * * * * * * * * * * * * */
-/* Copyright (C) 2022 J.W. Jagersma, see COPYING.txt for details */
-/* Copyright (C) 2021 J.W. Jagersma, see COPYING.txt for details */
+/* * * * * * * * * * * * * * * * * * jwutil * * * * * * * * * * * * * * * * * */
+/*    Copyright (C) 2021 - 2025 J.W. Jagersma, see COPYING.txt for details    */
 
 #pragma once
 #include <cstdint>
@@ -31,12 +30,6 @@ namespace jw
 
     template<typename T> T volatile_load(const T* p) noexcept { return *static_cast<const volatile T*>(p); }
     template<typename T> void volatile_store(T* p, const T& v) noexcept { *static_cast<volatile T*>(p) = v; }
-
-    consteval inline std::size_t alignment_for_bits(std::size_t nbits, std::size_t max) noexcept
-    {
-        if (nbits / 8 == 0) return 1;
-        return std::min(static_cast<std::size_t>(1 << std::countr_zero(nbits / 8)), max);
-    }
 
     template<typename F>
     struct finally
