@@ -1,5 +1,5 @@
 /* * * * * * * * * * * * * * * * * * jwutil * * * * * * * * * * * * * * * * * */
-/*    Copyright (C) 2023 - 2024 J.W. Jagersma, see COPYING.txt for details    */
+/*    Copyright (C) 2023 - 2025 J.W. Jagersma, see COPYING.txt for details    */
 
 #pragma once
 #include <jw/common.h>
@@ -102,7 +102,7 @@ namespace jw
         difference_type operator-(const circular_queue_iterator<const Queue, false>& b) const noexcept
         {
             const auto h = c->load_head();
-            assume(container() == b.container());
+            [[assume(container() == b.container())]];
             return distance(h, position()) - distance(h, b.position());
         }
 
@@ -126,8 +126,8 @@ namespace jw
             using I = circular_queue_iterator<Queue, false>;
             const auto pos = i.position();
             auto* const queue = i.container();
-            assume(min.container() == queue);
-            assume(max.container() == queue);
+            [[assume(min.container() == queue)]];
+            [[assume(max.container() == queue)]];
             if (delta == 0) return I { i };
             if (delta > 0)  return I { queue, pos + std::min(static_cast<size_type>( delta), i.distance(pos, max.position())) };
             else            return I { queue, pos - std::min(static_cast<size_type>(-delta), i.distance(min.position(), pos)) };
@@ -139,7 +139,7 @@ namespace jw
         // faster than subtraction.
         size_type distance_to(const circular_queue_iterator<const Queue, false>& x) const noexcept
         {
-            assume(container() == x.container());
+            [[assume(container() == x.container())]];
             return distance(position(), x.position());
         }
 
@@ -229,7 +229,7 @@ namespace jw
     {
         using Q = std::conditional_t<std::is_const_v<Qa> and std::is_const_v<Qb>, const Qa, std::remove_const_t<Qa>>;
         using I = circular_queue_iterator<Q, false>;
-        assume(ia.container() == ib.container());
+        [[assume(ia.container() == ib.container())]];
         Q* q = [&] { if constexpr (std::is_const_v<Qa>) return ib.container(); else return ia.container(); }();
         const I a { q, ia.position() }, b { q, ib.position() };
         return a - b < 0 ? a : b;
@@ -242,7 +242,7 @@ namespace jw
     {
         using Q = std::conditional_t<std::is_const_v<Qa> and std::is_const_v<Qb>, const Qa, std::remove_const_t<Qa>>;
         using I = circular_queue_iterator<Q, false>;
-        assume(ia.container() == ib.container());
+        [[assume(ia.container() == ib.container())]];
         Q* q = [&] { if constexpr (std::is_const_v<Qa>) return ib.container(); else return ia.container(); }();
         const I a { q, ia.position() }, b { q, ib.position() };
         return a - b > 0 ? a : b;

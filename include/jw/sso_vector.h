@@ -1,6 +1,5 @@
-/* * * * * * * * * * * * * * libjwutil * * * * * * * * * * * * * */
-/* Copyright (C) 2023 J.W. Jagersma, see COPYING.txt for details */
-/* Copyright (C) 2022 J.W. Jagersma, see COPYING.txt for details */
+/* * * * * * * * * * * * * * * * * * jwutil * * * * * * * * * * * * * * * * * */
+/*    Copyright (C) 2022 - 2025 J.W. Jagersma, see COPYING.txt for details    */
 
 #pragma once
 #include <cstddef>
@@ -400,7 +399,7 @@ namespace jw
             const size_type i = pos - begin();
             const size_type a = make_gap(i, 1);
             T* const p = begin() + i;
-            assume(a < 2);
+            [[assume(a < 2)]];
             try
             {
                 if constexpr (uses_allocator)
@@ -427,7 +426,7 @@ namespace jw
             const size_type i = pos - begin();
             const size_type a = make_gap(i, 1);
             T* const p = begin() + i;
-            assume(a < 2);
+            [[assume(a < 2)]];
             try
             {
                 if constexpr (uses_allocator)
@@ -514,7 +513,7 @@ namespace jw
             const size_type i = pos - begin();
             const size_type a = make_gap(i, 1);
             T* const p = begin() + i;
-            assume(a < 2);
+            [[assume(a < 2)]];
             destroy_n(p, a);
             try { construct(p, std::forward<A>(args)...); }
             catch (...)
@@ -797,7 +796,8 @@ namespace jw
             const size_type cap = calc_capacity(n + n / 2);
             if (n == 0) new (&far) vector_data { };
             else new (&far) vector_data { cap, n, allocate(cap) };
-            if constexpr (use_sso) assume(not near.bits.sso);
+            if constexpr (use_sso)
+                [[assume(not near.bits.sso)]];
         }
 
         constexpr void value_assign_elements(const T& v, size_type n)

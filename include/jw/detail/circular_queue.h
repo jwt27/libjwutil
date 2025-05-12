@@ -1,5 +1,5 @@
 /* * * * * * * * * * * * * * * * * * jwutil * * * * * * * * * * * * * * * * * */
-/*    Copyright (C) 2023 - 2023 J.W. Jagersma, see COPYING.txt for details    */
+/*    Copyright (C) 2023 - 2025 J.W. Jagersma, see COPYING.txt for details    */
 
 #pragma once
 
@@ -126,7 +126,7 @@ namespace jw::detail
             default:
                 __builtin_unreachable();
             }
-            assume(head == h);
+            [[assume(head == h)]];
         }
 
         constexpr void store_tail(std::size_t t, queue_access access = queue_access::produce) noexcept
@@ -157,7 +157,7 @@ namespace jw::detail
             default:
                 __builtin_unreachable();
             }
-            assume(tail == t);
+            [[assume(tail == t)]];
         }
 
     private:
@@ -193,7 +193,7 @@ namespace jw::detail
         // Find absolute position of index I from head position H.
         std::size_t add(std::size_t h, std::ptrdiff_t i) const noexcept
         {
-            assume(self()->wrap(h) == h);
+            [[assume(self()->wrap(h) == h)]];
             return self()->wrap(h + i);
         }
 
