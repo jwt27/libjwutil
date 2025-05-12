@@ -2,9 +2,9 @@
 /*    Copyright (C) 2021 - 2025 J.W. Jagersma, see COPYING.txt for details    */
 
 #pragma once
+#include <jw/type_traits.h>
 #include <cstdint>
 #include <bit>
-#include <type_traits>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic error "-Wpadded"
@@ -88,6 +88,18 @@ namespace jw
     static_assert(alignof(specific_uint<24>) == 1);
     static_assert(alignof(specific_uint<12>) == 1);
     static_assert(alignof(specific_uint< 6>) == 1);
+
+    template<bool Signed, std::size_t N>
+    struct make_signed<detail::specific_int<Signed, N>> { using type = detail::specific_int<true, N>; };
+
+    template<bool Signed, std::size_t N>
+    struct make_unsigned<detail::specific_int<Signed, N>> { using type = detail::specific_int<false, N>; };
+
+    template<bool Signed, std::size_t N>
+    struct is_signed<detail::specific_int<Signed, N>> : std::integral_constant<bool, Signed> { };
+
+    template<bool Signed, std::size_t N>
+    struct is_unsigned<detail::specific_int<Signed, N>> : std::integral_constant<bool, not Signed> { };
 }
 
 #pragma GCC diagnostic pop

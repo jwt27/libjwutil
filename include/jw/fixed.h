@@ -4,8 +4,8 @@
 #pragma once
 #include <jw/math.h>
 #include <jw/branchless.h>
+#include <jw/type_traits.h>
 #include <cstdint>
-#include <type_traits>
 #include <limits>
 #include <concepts>
 
@@ -305,4 +305,16 @@ namespace jw
 
     template<typename T, std::size_t F, std::integral U>
     constexpr bool operator >=(const U& l, const fixed<T, F>& r) noexcept { return fixed<U, 0> { l } >= r; }
+
+    template<typename T, std::size_t F>
+    struct make_signed<fixed<T, F>> { using type = fixed<make_signed_t<T>, F>; };
+
+    template<typename T, std::size_t F>
+    struct make_unsigned<fixed<T, F>> { using type = fixed<make_unsigned_t<T>, F>; };
+
+    template<typename T, std::size_t F>
+    struct is_signed<fixed<T, F>> : is_signed<T> { };
+
+    template<typename T, std::size_t F>
+    struct is_unsigned<fixed<T, F>> : is_unsigned<T> { };
 }

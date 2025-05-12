@@ -91,6 +91,18 @@ namespace jw
     static_assert (sizeof(split_uint64_t) == 8);
     static_assert (sizeof(split_uint32_t) == 4);
     static_assert (sizeof(split_uint16_t) == 2);
+
+    template<bool Signed, std::size_t N>
+    struct make_signed<detail::split_int<Signed, N>> { using type = detail::split_int<true, N>; };
+
+    template<bool Signed, std::size_t N>
+    struct make_unsigned<detail::split_int<Signed, N>> { using type = detail::split_int<false, N>; };
+
+    template<bool Signed, std::size_t N>
+    struct is_signed<detail::split_int<Signed, N>> : std::integral_constant<bool, Signed> { };
+
+    template<bool Signed, std::size_t N>
+    struct is_unsigned<detail::split_int<Signed, N>> : std::integral_constant<bool, not Signed> { };
 }
 
 #pragma GCC diagnostic pop
