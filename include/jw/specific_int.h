@@ -5,6 +5,7 @@
 #include <jw/type_traits.h>
 #include <cstdint>
 #include <bit>
+#include <algorithm>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic error "-Wpadded"
