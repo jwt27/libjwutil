@@ -3,6 +3,7 @@
 
 #pragma once
 #include <cstdint>
+#include <utility>
 
 namespace jw
 {
@@ -26,8 +27,10 @@ namespace jw
     [[gnu::always_inline]]
     constexpr inline void assume(bool condition) noexcept { if (not condition) __builtin_unreachable(); }
 
-    template<typename T> T volatile_load(const T* p) noexcept { return *static_cast<const volatile T*>(p); }
-    template<typename T> void volatile_store(T* p, const T& v) noexcept { *static_cast<volatile T*>(p) = v; }
+    template<typename T>
+    T volatile_load(const volatile T* p) noexcept { return *p; }
+    template<typename T, typename U = T>
+    void volatile_store(volatile T* p, U&& v) noexcept { *p = std::forward<U>(v); }
 
     template<typename F>
     struct finally
