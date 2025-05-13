@@ -24,7 +24,7 @@ namespace jw
     [[gnu::always_inline]]
     inline void force_frame_pointer() noexcept { asm(""::"r"(__builtin_frame_address(0))); }
 
-    [[gnu::always_inline]]
+    [[gnu::always_inline, deprecated]]
     constexpr inline void assume(bool condition) noexcept { if (not condition) __builtin_unreachable(); }
 
     template<typename T>
