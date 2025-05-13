@@ -39,6 +39,8 @@ namespace jw::detail
         static constexpr std::size_t storage_bits = (N + 7) & -8;
         using int_type = int_type_for_bits<Signed, N>;
 
+        int_type value : storage_bits;
+
         constexpr specific_int() noexcept = default;
         constexpr specific_int(const specific_int&) noexcept = default;
         constexpr specific_int& operator=(const specific_int&) noexcept = default;
@@ -62,15 +64,12 @@ namespace jw::detail
             }
         }
 
-    private:
         static constexpr int_type mask(auto v) noexcept
         {
             using limits = std::numeric_limits<std::make_unsigned_t<int_type>>;
             constexpr auto n = limits::digits - N;
             return static_cast<int_type>(v) << n >> n;
         }
-
-        int_type value : storage_bits;
     };
 }
 
