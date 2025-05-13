@@ -17,57 +17,56 @@ namespace jw::detail
     union [[gnu::packed]] alignas(alignment_for_bits(N)) split_int<Signed, N>
     {
         using value_type = detail::specific_int<Signed, N>;
+        using lo_type = int_type_for_bits<false, (N / 2)>;
+        using hi_type = int_type_for_bits<Signed, (N / 2)>;
 
         struct [[gnu::packed]]
         {
-            int_type_for_bits<false, (N / 2)> lo : N / 2;
-            int_type_for_bits<Signed, (N / 2)> hi : N / 2;
+            lo_type lo : N / 2;
+            hi_type hi : N / 2;
         };
         value_type value;
 
         constexpr split_int() noexcept = default;
         constexpr split_int(const split_int&) noexcept = default;
-        constexpr split_int(split_int&&) noexcept = default;
         constexpr split_int& operator=(const split_int&) noexcept = default;
-        constexpr split_int& operator=(split_int&&) noexcept = default;
 
-        constexpr split_int(std::integral auto l, std::integral auto h) noexcept
-            : lo { static_cast<decltype(lo)>(l) }
-            , hi { static_cast<decltype(hi)>(h) }
+        constexpr split_int(std::convertible_to<lo_type> auto l, std::convertible_to<hi_type> auto h) noexcept
+            : lo { static_cast<lo_type>(l) }
+            , hi { static_cast<hi_type>(h) }
         { };
 
-        constexpr split_int(std::integral auto v) noexcept
+        constexpr split_int(std::convertible_to<value_type> auto v) noexcept
             : value { v }
         { };
 
         constexpr operator value_type::int_type() const noexcept { return value; }
     };
 
-    template<bool Signed, std::size_t N> requires ((N > 16) and (N / 2) % 2 == 0 and N % 2 == 0)
+    template<bool Signed, std::size_t N> requires ((N > 16) and (N / 2) % 2 == 0 and (N % 2) == 0)
     union [[gnu::packed]] alignas(alignment_for_bits(N)) split_int<Signed, N>
     {
         using value_type = detail::specific_int<Signed, N>;
+        using lo_type = split_int<false, (N / 2)>;
+        using hi_type = split_int<Signed, (N / 2)>;
 
         struct [[gnu::packed]]
         {
-            split_int<false, (N / 2)> lo;
-            split_int<Signed, (N / 2)> hi;
+            lo_type lo;
+            hi_type hi;
         };
         value_type value;
 
         constexpr split_int() noexcept = default;
         constexpr split_int(const split_int&) noexcept = default;
-        constexpr split_int(split_int&&) noexcept = default;
         constexpr split_int& operator=(const split_int&) noexcept = default;
-        constexpr split_int& operator=(split_int&&) noexcept = default;
 
-        template<typename L, typename H>
-        constexpr split_int(L&& l, H&& h) noexcept
-            : lo { std::forward<L>(l) }
-            , hi { std::forward<H>(h) }
+        constexpr split_int(std::convertible_to<lo_type> auto l, std::convertible_to<hi_type> auto h) noexcept
+            : lo { l }
+            , hi { h }
         { }
 
-        constexpr split_int(std::integral auto v) noexcept
+        constexpr split_int(std::convertible_to<value_type> auto v) noexcept
             : value { v }
         { }
 

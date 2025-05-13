@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <bit>
 #include <algorithm>
+#include <concepts>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic error "-Wpadded"
@@ -40,11 +41,9 @@ namespace jw::detail
 
         constexpr specific_int() noexcept = default;
         constexpr specific_int(const specific_int&) noexcept = default;
-        constexpr specific_int(specific_int&&) noexcept = default;
         constexpr specific_int& operator=(const specific_int&) noexcept = default;
-        constexpr specific_int& operator=(specific_int&&) noexcept = default;
 
-        constexpr specific_int(std::integral auto v) noexcept
+        constexpr specific_int(std::convertible_to<int_type> auto v) noexcept
             : value { mask(v) }
         { }
 
