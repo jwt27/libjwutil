@@ -16,6 +16,12 @@ namespace jw
         constexpr std::uint64_t operator"" _TB(std::uint64_t n) { return n << 40; }
     }
 
+    // Byte types, not subject to strict-aliasing rules.
+    template<typename T>
+    concept byte_type = (std::same_as<T, std::byte>
+                         or std::same_as<T, unsigned char>
+                         or std::same_as<T, char>);
+
     // Prevent omission of the frame pointer in the function where this is
     // called.  If a frame pointer is present, stack memory operands in asm
     // statements are always addressed through it.  Without a frame pointer,
