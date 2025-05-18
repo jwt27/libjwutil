@@ -26,18 +26,20 @@ namespace jw
     }
 
     template<std::unsigned_integral T>
-    constexpr T add_saturate(T x, T y) noexcept
+    constexpr T add_saturate(std::type_identity_t<T> x, std::type_identity_t<T> y) noexcept
     {
         T sum;
         const T carry = __builtin_add_overflow(x, y, &sum);
         return sum | -carry;
     }
 
-    template<std::unsigned_integral T>
-    constexpr T sub_saturate(T x, T y) noexcept
+    template<std::unsigned_integral T, std::unsigned_integral U>
+    constexpr auto sub_saturate(T x, U y) noexcept
     {
-        T diff;
-        const T borrow = __builtin_sub_overflow(x, y, &diff);
+        using V = decltype(x - y);
+        static_assert(std::unsigned_integral<V>);
+        V diff;
+        const V borrow = __builtin_sub_overflow(x, y, &diff);
         return diff & (borrow - 1u);
     }
 
