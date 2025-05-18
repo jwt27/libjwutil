@@ -69,8 +69,6 @@ namespace jw
         constexpr fixed& operator=(const fixed&) noexcept = default;
         constexpr fixed& operator=(fixed&&) noexcept = default;
 
-        template<typename U> constexpr fixed& operator =(U v) { *this  = fixed { v }; return *this; }
-
         constexpr fixed operator +() const noexcept { return make(+value); }
         constexpr fixed operator -() const noexcept { return make(-value); }
 
