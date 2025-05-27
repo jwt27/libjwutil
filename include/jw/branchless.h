@@ -61,6 +61,13 @@ namespace jw
         }
     }
 
+    template<typename T>
+    constexpr std::pair<T*, T*> minmax(T* a, T* b) noexcept
+    {
+        auto r = minmax(reinterpret_cast<std::uintptr_t>(a), reinterpret_cast<std::uintptr_t>(b));
+        return { reinterpret_cast<T*>(r.first), reinterpret_cast<T*>(r.second) };
+    }
+
     // "inline if"
     template<std::integral T>
     constexpr T iif(bool c, T if_true, T if_false) noexcept
@@ -77,19 +84,19 @@ namespace jw
         return reinterpret_cast<T*>(r);
     }
 
-    template<std::integral T>
+    template<typename T> requires (std::integral<T> or std::is_pointer_v<T>)
     constexpr T min(T a, T b) noexcept
     {
         return minmax(a, b).first;
     }
 
-    template<std::integral T>
+    template<typename T> requires (std::integral<T> or std::is_pointer_v<T>)
     constexpr T max(T a, T b) noexcept
     {
         return minmax(a, b).second;
     }
 
-    template<std::integral T>
+    template<typename T> requires (std::integral<T> or std::is_pointer_v<T>)
     constexpr T clamp(T x, T lo, T hi) noexcept
     {
         return min(max(x, lo), hi);
