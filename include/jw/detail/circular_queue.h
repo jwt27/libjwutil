@@ -361,7 +361,7 @@ namespace jw::detail
         const T* get(std::size_t i) const noexcept { return std::launder(reinterpret_cast<const T*>(&storage[i])); }
 
     private:
-        std::array<std::aligned_storage_t<sizeof(T), alignof(T)>, N> storage;
+        alignas(alignof(T)) std::array<std::byte[sizeof(T)], N> storage;
     };
 
     template<typename T, queue_sync Sync, typename Alloc>
