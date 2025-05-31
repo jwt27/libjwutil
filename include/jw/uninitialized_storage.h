@@ -49,10 +49,8 @@ namespace jw
     };
 
     template<typename Base, std::derived_from<Base>... Ts>
-    struct uninitialized_union
-        : uninitialized_storage<Base, std::max({ sizeof...(Ts) }), std::max({ alignof(Ts)... })>
-    {
-    };
+    using uninitialized_union
+        = uninitialized_storage<Base, std::max({ sizeof...(Ts) }), std::max({ alignof(Ts)... })>;
 
     template<typename T, typename Base, std::size_t N, std::size_t A, typename... Args>
     T* construct(uninitialized_storage<Base, N, A>& storage, Args&&... args)
